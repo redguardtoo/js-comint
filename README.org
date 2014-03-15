@@ -10,7 +10,9 @@ That's what I will fix. I intend to keep it in maintaining mode and avoid adding
 - when loading file, detect what API to be used automatically
 
 * Set up
+Place the js-cominit.el somewhere say "~/mylisp/"
 #+BEGIN_SRC elisp
+(add-to-list 'load-path "~/mylisp/")
 (require 'js-comint)
 ;; if use node.js, we need nice output
 (setenv "NODE_NO_READLINE" "1")
