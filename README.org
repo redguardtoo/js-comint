@@ -1,0 +1,21 @@
+* js-comint (version 0.0.2)
+It's only a bug fix version of [[http://js-comint-el.sourceforge.net/][js-cominit 0.0.1]].
+
+Since it's not been updated for about five years. There is some compatibility issue with latest node.js.
+
+That's what I will fix. I intend to keep it in maintaining mode and avoid adding any new command.
+
+* Features added by me
+- Use node.js by default.
+- when loading file, detect what API to be used automatically
+
+* Set up
+#+BEGIN_SRC elisp
+(require 'js-comint)
+;; if use node.js, we need nice output
+(setenv "NODE_NO_READLINE" "1")
+#+END_SRC
+
+* Usage
+Check it's [[http://js-comint-el.sourceforge.net/][original documentation on sourceforge]].
+
