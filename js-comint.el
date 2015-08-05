@@ -216,5 +216,4 @@ Javascript source.
 
 
 "
-  (use-local-map inferior-js-mode-map)
-  )
+  (use-local-map inferior-js-mode-map))
