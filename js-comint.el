@@ -138,13 +138,23 @@ is run).
 (defun js-send-last-sexp-and-go ()
   "Send the previous sexp to the inferior Js process."
   (interactive)
-  (js-send-region-and-go (save-excursion (backward-sexp) (point)) (point)))
+  (js-send-region-and-go
+   (save-excursion
+     (backward-sexp)
+     (move-beginning-of-line nil)
+     (point))
+   (point)))
 
 ;;;###autoload
 (defun js-send-last-sexp ()
   "Send the previous sexp to the inferior Javascript process."
   (interactive)
-  (js-send-region (save-excursion (backward-sexp) (point)) (point)))
+  (js-send-region
+   (save-excursion
+     (backward-sexp)
+     (move-beginning-of-line nil)
+     (point))
+   (point)))
 
 ;;;###autoload
 (defun js-send-buffer ()
@@ -216,5 +226,4 @@ Javascript source.
 
 
 "
-  (use-local-map inferior-js-mode-map)
-  )
+  (use-local-map inferior-js-mode-map))
