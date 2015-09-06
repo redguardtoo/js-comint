@@ -227,3 +227,5 @@ Javascript source.
 
 "
   (use-local-map inferior-js-mode-map))
+
+;;; js-comint.el ends here
