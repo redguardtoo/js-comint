@@ -35,15 +35,16 @@
 ;;   USA
 
 ;;; Commentary:
-;;; js-comint.el is a comint mode for emacs which allows you to run a
-;;; compatible javascript repl such as Node.js, Spidermonkey or Rhino inside
-;;; emacs.
-;;; Additionally, it defines a few functions for sending javascript input to it
-;;; quickly.
 
-;;  Usage:
+;; js-comint.el is a comint mode for Emacs which allows you to run a
+;; compatible javascript repl like Node.js/Spidermonkey/Rhino inside Emacs.
+;; It also defines a few functions for sending javascript input to it
+;; quickly.
+
+;; Usage:
 ;;  Put js-comint.el in your load path
-;;  Add (require 'js-comint) to your .emacs
+;;  Add (require 'js-comint) to your .emacs or ~/.emacs.d/init.el
+;;
 ;;  Optionally, set the `inferior-js-program-command' string
 ;;  and the `inferior-js-program-arguments' list to the executable that runs
 ;;  the JS interpreter and the arguments to pass to it respectively.
@@ -51,16 +52,16 @@
 ;;  (setq inferior-js-program-command "node")
 ;;  (setq inferior-js-program-arguments '("--interactive"))
 
-;; E.g. Set up the Rhino JAR downloaded from
-;; https://github.com/mozilla/rhino
-;; (setq inferior-js-program-command "java")
-;; (setq inferior-js-program-arguments '("-jar" "/absolute/path/to/rhino/js.jar"))
+;;  E.g. Set up the Rhino JAR downloaded from
+;;  https://github.com/mozilla/rhino
+;;  (setq inferior-js-program-command "java")
+;;  (setq inferior-js-program-arguments '("-jar" "/absolute/path/to/rhino/js.jar"))
 
-;;  Do: M-x run-js
+;;  Do: `M-x run-js'
 ;;  Away you go.
 
 ;;  If you have nvm, you can select the versions of node.js installed and run
-;;  them. This is done thanks to nvm.el
+;;  them.  This is done thanks to nvm.el
 ;;  To enable nvm support, run (js-do-use-nvm)
 ;;  The first time you start the JS interpreter with run-js, you will be asked
 ;;  to select a version of node.js
@@ -77,22 +78,10 @@
 ;;                             (local-set-key "\C-c\C-b" 'js-send-buffer-and-go)
 ;;                             (local-set-key "\C-cl" 'js-load-file-and-go)))
 
-;;; History:
-;; * Version 0.0.3:
-;;   - add support to select node.js versions using nvm.el
-;; * Version 0.0.2:
-;;   - hosted on https://github.com/redguardtoo/js-comint
-;;   - use node.js by default.
-;;   - when loading file, detect what API to be used automatically
-;; * Version 0.0.1:
-;;   - original js-comint hosted on http://js-comint-el.sourceforge.net/
-
 ;;; Code:
 
 (require 'nvm)
 (require 'comint)
-
-(provide 'js-comint)
 
 (defcustom inferior-js-program-command "node"
   "JavScript interpreter.")
@@ -304,10 +293,8 @@ You can send text to the inferior Javascript process from othber buffers contain
 Javascript source.
     switch-to-js switches the current buffer to the Javascript process buffer.
     js-send-region sends the current region to the Javascript process.
-
-
 "
   (use-local-map inferior-js-mode-map))
 
-
+(provide 'js-comint)
 ;;; js-comint.el ends here
