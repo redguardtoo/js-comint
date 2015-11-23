@@ -83,15 +83,15 @@
 (require 'nvm)
 (require 'comint)
 
+(defgroup inferior-js nil
+  "Run a javascript process in a buffer."
+  :group 'inferior-js)
+
 (defcustom inferior-js-program-command "node"
   "JavScript interpreter.")
 
 (defcustom inferior-js-program-arguments '("--interactive")
   "List of command line arguments to pass to the JavaScript interpreter.")
-
-(defgroup inferior-js nil
-  "Run a javascript process in a buffer."
-  :group 'inferior-js)
 
 (defcustom inferior-js-mode-hook nil
   "*Hook for customizing inferior-js mode."
@@ -107,6 +107,8 @@
   "Prompt for `run-js'.")
 
 (defvar js-nvm-current-version nil "Current version of node.")
+
+(defvar inferior-js-buffer)
 
 (defun js-list-nvm-versions (prompt)
   "List all available node versions from nvm prompting the user with PROMPT.
@@ -268,8 +270,6 @@ With argument, position cursor at end of buffer."
   (when eob-p
     (push-mark)
     (goto-char (point-max))))
-
-(defvar inferior-js-buffer)
 
 (defvar inferior-js-mode-map
   (let ((m (make-sparse-keymap)))
