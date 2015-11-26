@@ -298,6 +298,7 @@ Javascript source.
     switch-to-js switches the current buffer to the Javascript process buffer.
     js-send-region sends the current region to the Javascript process.
 "
+  :group 'inferior-js
   (use-local-map inferior-js-mode-map))
 
 (provide 'js-comint)
