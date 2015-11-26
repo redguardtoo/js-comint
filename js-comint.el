@@ -105,6 +105,9 @@
   :type 'boolean
   :group 'inferior-js)
 
+(defvar inferior-js-buffer nil
+  "Name of the inferior JavaScript buffer.")
+
 (defvar js-prompt-regexp "^\\(?:> \\)"
   "Prompt for `run-js'.")
 
