@@ -268,8 +268,7 @@ is run).
   "Switch to the javascript process buffer.
 With argument, position cursor at end of buffer."
   (interactive "P")
-  (if (or (and inferior-js-buffer (get-buffer inferior-js-buffer))
-          (js-interactively-start-process))
+  (if (and inferior-js-buffer (get-buffer inferior-js-buffer))
       (pop-to-buffer inferior-js-buffer)
     (error "No current process buffer.  See variable `inferior-js-buffer'"))
   (when eob-p
