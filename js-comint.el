@@ -183,9 +183,9 @@ is run).
       (setq inferior-js-program-arguments (split-string cmd))
       (setq inferior-js-program-command (pop inferior-js-program-arguments)))))
   (if (not (comint-check-proc "*js*"))
-      (save-excursion
-        (set-buffer (apply 'make-comint "js" inferior-js-program-command
-                           nil inferior-js-program-arguments))
+      (with-current-buffer
+          (apply 'make-comint "js" inferior-js-program-command
+                 nil inferior-js-program-arguments)
         (inferior-js-mode)))
   (setq inferior-js-buffer "*js*")
   (if (not dont-switch-p)
