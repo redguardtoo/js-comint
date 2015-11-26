@@ -113,8 +113,6 @@
 
 (defvar js-nvm-current-version nil "Current version of node.")
 
-(defvar inferior-js-buffer)
-
 (defun js-list-nvm-versions (prompt)
   "List all available node versions from nvm prompting the user with PROMPT.
 Return a string representing the node version."
