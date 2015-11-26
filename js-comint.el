@@ -88,10 +88,12 @@
   :group 'inferior-js)
 
 (defcustom inferior-js-program-command "node"
-  "JavScript interpreter.")
+  "JavScript interpreter."
+  :group 'inferior-js)
 
 (defcustom inferior-js-program-arguments '("--interactive")
-  "List of command line arguments to pass to the JavaScript interpreter.")
+  "List of command line arguments to pass to the JavaScript interpreter."
+  :group 'inferior-js)
 
 (defcustom inferior-js-mode-hook nil
   "*Hook for customizing inferior-js mode."
