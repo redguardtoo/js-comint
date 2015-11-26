@@ -168,10 +168,6 @@ of `inferior-js-program-command').
 Runs the hook `inferior-js-mode-hook' \(after the `comint-mode-hook'
 is run).
 \(Type \\[describe-mode] in the process buffer for a list of commands.)"
-  (when js-use-nvm
-    (unless js-nvm-current-version
-      (js-select-node-version)))
-  (setenv "NODE_NO_READLINE" "1")
   (interactive
    (list
     (when current-prefix-arg
@@ -183,6 +179,10 @@ is run).
                            inferior-js-program-command
                            inferior-js-program-arguments)
                           " ")))
+      (when js-use-nvm
+        (unless js-nvm-current-version
+          (js-select-node-version)))
+      (setenv "NODE_NO_READLINE" "1")
       (setq inferior-js-program-arguments (split-string cmd))
       (setq inferior-js-program-command (pop inferior-js-program-arguments)))))
   (if (not (comint-check-proc "*js*"))
