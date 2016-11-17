@@ -193,8 +193,9 @@ is run).
                  nil inferior-js-program-arguments)
         (inferior-js-mode)))
   (setq inferior-js-buffer "*js*")
-  (if (not dont-switch-p)
-      (pop-to-buffer "*js*")))
+  (if dont-switch-p
+      (display-buffer "*js*")
+    (pop-to-buffer "*js*")))
 
 ;;;###autoload
 (defun js-send-region (start end)
