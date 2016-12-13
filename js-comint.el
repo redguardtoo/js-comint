@@ -155,8 +155,23 @@ Return a string representing the node version."
   (let ((cmd (concat "require(\"" filename "\")\n")))
     (when (not (js--is-nodejs))
       (setq cmd (concat "load(\"" filename "\")\n")))
-    cmd
-    ))
+    cmd))
+
+;;;###autoload
+(defun js-clear ()
+  "Clear the *js* buffer."
+  (interactive)
+  (let* ((buf (get-buffer inferior-js-buffer))
+         (old-buf (current-buffer)))
+    (save-excursion
+      (cond
+       ((buffer-live-p buf)
+        (switch-to-buffer buf)
+        (erase-buffer)
+        (switch-to-buffer old-buf)
+        (message "*js* buffer cleared."))
+       (t
+        (error "*js* buffer doesn't exist!"))))))
 
 ;;;###autoload
 (defun run-js (cmd &optional dont-switch-p)
