@@ -2,6 +2,7 @@
 
 ;;; Copyright (C) 2008 Paul Huff
 ;;; Copyright (C) 2015 Stefano Mazzucco
+;;; Copyright (C) 2016 Chen Bin
 
 ;;; Author: Paul Huff <paul.huff@gmail.com>, Stefano Mazzucco <MY FIRST NAME - AT - CURSO - DOT - RE>
 ;;; Maintainer: Chen Bin <chenbin.sh AT gmail DOT com>
@@ -112,7 +113,12 @@
 (defvar js-prompt-regexp "^\\(?:> \\)"
   "Prompt for `run-js'.")
 
-(defvar js-nvm-current-version nil "Current version of node.")
+(defvar js-comint-drop-regexp
+  "^[ \t]*undefined[\r\n]+"
+  "Regexp that matches text to silently drop.")
+
+(defvar js-nvm-current-version nil
+  "Current version of node.")
 
 (defun js-list-nvm-versions (prompt)
   "List all available node versions from nvm prompting the user with PROMPT.
@@ -289,6 +295,18 @@ is run).
     (run-js inferior-js-program-command t)
     (comint-send-string inferior-js-buffer (js--guess-load-file-cmd filename))
     (switch-to-js inferior-js-buffer)))
+
+;;;###autoload
+(defun js-comint-process-output (string)
+  "Cleaner output."
+  (let* ((start-marker (or comint-last-output-start
+                            (point-min-marker)))
+          (end-marker (process-mark (get-buffer-process (current-buffer)))))
+    ;; shamelessly copied from `ansi-color-process-output'
+    (save-excursion
+      (goto-char start-marker)
+      (while (re-search-forward js-comint-drop-regexp end-marker t)
+        (replace-match "")))))
 
 ;;;###autoload
 (defun switch-to-js (eob-p)
