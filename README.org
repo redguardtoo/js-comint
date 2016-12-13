@@ -1,4 +1,4 @@
-* js-comint.el (v0.0.5)
+* js-comint.el (v1.0.0)
 Run a JavaScript interpreter in an inferior process window
 
 The first release, [[http://js-comint-el.sourceforge.net/][js-comint 0.0.1, is hosted on sourceforge]] but it has not been updated for five years.
@@ -39,11 +39,25 @@ Add js-comint to your Cask file:
 * Usage
 After installation, do `M-x run-js` to create a comint buffer with the JavaScript interpreter.
 
+Please note =node_modules== is *automatically* searched and appended into environment variable `NODE_PATH'. So you can use third party javascript without setup. For example, after =npm install --save moment=, run below command in js-comint shell,
+#+begin_src javascript
+require('moment')().format('YYYY-MM-DD');
+#+end_src
+
+You can =M-x js-clear= before =M-x js-send-buffer= to get clean output.
+
+In order to get clearner output when using NodeJS, I suggest add below setup into =.emacs=,
+#+begin_src elisp
+(defun inferior-js-mode-hook-setup ()
+  (add-hook 'comint-output-filter-functions 'js-comint-process-output))
+(add-hook 'inferior-js-mode-hook 'inferior-js-mode-hook-setup t)
+#+end_src
 * Customization
 You can set the `inferior-js-program-command' string and the `inferior-js-program-arguments' list to the executable that runs the JS interpreter and the arguments to pass to it respectively.
 
 E.g., the default is:
 #+BEGIN_SRC elisp
+;; You can also customize `js-comint-drop-regexp' to filter output
 (setq inferior-js-program-command "node")
 (setq inferior-js-program-arguments '("--interactive"))
 #+END_SRC
