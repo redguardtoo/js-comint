@@ -208,6 +208,25 @@ is run).
       (setq inferior-js-program-command (pop inferior-js-program-arguments)))))
 
   (setenv "NODE_NO_READLINE" "1")
+
+  ;; add "node_modules/" into $NODE_PATH
+  (let* ((node-modules (locate-dominating-file default-directory "node_modules"))
+         (node-path (getenv "NODE_PATH")))
+    (cond
+     (node-modules
+      (setq node-modules (concat (file-name-as-directory node-modules) "node_modules"))
+      (cond
+       ((or (not node-path)
+            (string= "" node-path))
+        ;; set
+        (setenv "NODE_PATH" node-modules))
+       ((not (string-match-p node-modules node-path))
+        ;; append
+        (setenv "NODE_PATH" (concat node-path ":" node-modules))))
+      (message "%s added into \$NODE_PATH" node-modules))
+     (t
+      (message "Can't find node_modules/"))))
+
   (if (not (comint-check-proc "*js*"))
       (with-current-buffer
           (apply 'make-comint "js" inferior-js-program-command
