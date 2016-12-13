@@ -251,18 +251,27 @@ is run).
      (point))
    (point)))
 
+(defun js-get-buffer-point-min ()
+  (let* ((rlt (point-min)))
+    (save-excursion
+      (goto-char rlt)
+      (when (= (following-char) ?#)
+        (forward-line)
+        (setq rlt (line-beginning-position))))
+    rlt))
+
 ;;;###autoload
 (defun js-send-buffer ()
   "Send the buffer to the inferior Javascript process."
   (interactive)
-  (js-send-region (point-min) (point-max)))
+  (js-send-region (js-get-buffer-point-min) (point-max)))
 
 
 ;;;###autoload
 (defun js-send-buffer-and-go ()
   "Send the buffer to the inferior Javascript process."
   (interactive)
-  (js-send-region-and-go (point-min) (point-max)))
+  (js-send-region-and-go (js-get-buffer-point-min) (point-max)))
 
 ;;;###autoload
 (defun js-load-file (filename)
