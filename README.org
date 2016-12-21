@@ -39,14 +39,14 @@ Add js-comint to your Cask file:
 * Usage
 After installation, do `M-x run-js` to create a comint buffer with the JavaScript interpreter.
 
-Please note =node_modules== is *automatically* searched and appended into environment variable `NODE_PATH'. So you can use third party javascript without setup. For example, after =npm install --save moment=, run below command in js-comint shell,
+Please note the directory =node_modules= is *automatically* searched and appended into environment variable `NODE_PATH'. So you can use third party javascript without setup. For example, after =npm install --save moment=, run below command in js-comint shell,
 #+begin_src javascript
 require('moment')().format('YYYY-MM-DD');
 #+end_src
 
 You can =M-x js-clear= before =M-x js-send-buffer= to get clean output.
 
-In order to get clearner output when using NodeJS, I suggest add below setup into =.emacs=,
+In order to get cleaner output when using NodeJS, I suggest add below setup into =.emacs=,
 #+begin_src elisp
 (defun inferior-js-mode-hook-setup ()
   (add-hook 'comint-output-filter-functions 'js-comint-process-output))
