@@ -2,7 +2,7 @@
 
 ;;; Copyright (C) 2008 Paul Huff
 ;;; Copyright (C) 2015 Stefano Mazzucco
-;;; Copyright (C) 2016 Chen Bin
+;;; Copyright (C) 2016-2017 Chen Bin
 
 ;;; Author: Paul Huff <paul.huff@gmail.com>, Stefano Mazzucco <MY FIRST NAME - AT - CURSO - DOT - RE>
 ;;; Maintainer: Chen Bin <chenbin.sh AT gmail DOT com>
@@ -16,7 +16,7 @@
 
 ;;; License:
 
-;; js-comint.el is free software; you can redistribute it and/or
+;; This program is free software; you can redistribute it and/or
 ;; modify it under the terms of the GNU General Public License as
 ;; published by the Free Software Foundation; either version 2, or
 ;; at your option any later version.
@@ -46,19 +46,10 @@
 ;;  Put js-comint.el in your load path
 ;;  Add (require 'js-comint) to your .emacs or ~/.emacs.d/init.el
 ;;
-;;  Optionally, set the `inferior-js-program-command' string
-;;  and the `inferior-js-program-arguments' list to the executable that runs
+;;  Optionally, set the `js-comint-program-command' string
+;;  and the `js-comint-program-arguments' list to the executable that runs
 ;;  the JS interpreter and the arguments to pass to it respectively.
-;;  E.g., the default is:
-;;  (setq inferior-js-program-command "node")
-;;  (setq inferior-js-program-arguments '("--interactive"))
-
-;;  E.g. Set up the Rhino JAR downloaded from
-;;  https://github.com/mozilla/rhino
-;;  (setq inferior-js-program-command "java")
-;;  (setq inferior-js-program-arguments '("-jar" "/absolute/path/to/rhino/js.jar"))
-
-;;  Do: `M-x run-js'
+;;  Do: `M-x js-comint-repl'
 ;;  Away you go.
 ;;  `node_modules' is *automatically* searched and appended into environment
 ;;  variable `NODE_PATH'. So 3rd party javascript is usable out of box.
@@ -71,16 +62,11 @@
 ;;  to select a version of node.js
 ;;  If you want to change version of node js, run `js-select-node-version'
 ;;
-;;  `js-clear' clears the content of REPL.
+;;  `js-comint-clear' clears the content of REPL.
 ;;
 ;; You may get cleaner output by following setup (highly recommended):
 ;;
-;;   (defun inferior-js-mode-hook-setup ()
-;;     (add-hook 'comint-output-filter-functions 'js-comint-process-output))
-;;   (add-hook 'inferior-js-mode-hook 'inferior-js-mode-hook-setup t)
-;;
-;;  `js-comint-process-output' uses `js-comint-drop-regexp' which could be
-;;  customized by users.
+;;  Output matching `js-comint-drop-regexp' will be dropped silently
 ;;
 ;;  You can add the following lines to your .emacs to take advantage of
 ;;  cool keybindings for sending things to the javascript interpreter inside
@@ -89,46 +75,61 @@
 ;;   (add-hook 'js2-mode-hook
 ;;             (lambda ()
 ;;               (local-set-key (kbd "C-x C-e") 'js-send-last-sexp)
-;;               (local-set-key (kbd "C-M-x") 'js-send-last-sexp-and-go)
 ;;               (local-set-key (kbd "C-c b") 'js-send-buffer)
-;;               (local-set-key (kbd "C-c C-b") 'js-send-buffer-and-go)
-;;               (local-set-key (kbd "C-c l") 'js-load-file-and-go)))
+;;               ))
 
 ;;; Code:
 
+(require 'js)
 (require 'comint)
+(require 'ansi-color)
 
-(defgroup inferior-js nil
+(defgroup js-comint nil
   "Run a javascript process in a buffer."
-  :group 'inferior-js)
+  :group 'js-comint)
 
-(defcustom inferior-js-program-command "node"
+(defcustom js-comint-program-command "node"
   "JavaScript interpreter."
-  :group 'inferior-js)
+  :group 'js-comint)
 
-(defcustom inferior-js-program-arguments '("--interactive")
-  "List of command line arguments to pass to the JavaScript interpreter."
-  :group 'inferior-js)
+(defvar js-comint-drop-regexp
+  "\\(\x1b\\[[0-9]+[GJK]\\|^[ \t]*undefined[\r\n]+\\)"
+  "Regex to silence matching output.")
 
-(defcustom inferior-js-mode-hook nil
-  "*Hook for customizing inferior-js mode."
+(defcustom js-comint-program-arguments '()
+  "List of command line arguments passed to the JavaScript interpreter."
+  :group 'js-comint)
+
+(defcustom js-comint-prompt "> "
+  "Prompt used in `js-comint-mode'."
+  :group 'js-comint
+  :type 'string)
+
+(defcustom js-comint-mode-hook nil
+  "*Hook for customizing js-comint mode."
   :type 'hook
-  :group 'inferior-js)
+  :group 'js-comint)
 
 (defcustom js-use-nvm nil
   "When t, use NVM.  Requires nvm.el."
   :type 'boolean
-  :group 'inferior-js)
+  :group 'js-comint)
 
-(defvar inferior-js-buffer nil
+(defvar js-comint-buffer "Javascript REPL"
   "Name of the inferior JavaScript buffer.")
+
+;; process.stdout.columns should be set.
+;; but process.stdout.columns in Emacs is infinity because Emacs returns 0 as winsize.ws_col.
+;; The completion candidates won't be displayed if process.stdout.columns is infinity.
+;; see also `handleGroup` function in readline.js
+(defvar js-comint-code-format
+  (concat
+   "process.stdout.columns = %d;"
+   "require('repl').start('%s', null, null, true, false, "
+   "require('repl')['REPL_MODE_' + '%s'.toUpperCase()])"))
 
 (defvar js-prompt-regexp "^\\(?:> \\)"
   "Prompt for `run-js'.")
-
-(defvar js-comint-drop-regexp
-  "^[ \t]*undefined[\r\n]+"
-  "Regexp that matches text to silently drop.")
 
 (defvar js-nvm-current-version nil
   "Current version of node.")
@@ -160,14 +161,14 @@ Return a string representing the node version."
                   (format "Node version (current %s): " (car old-js-nvm))
                 "Node version: "))))))
   (progn
-    (setq inferior-js-program-command
+    (setq js-comint-program-command
           (concat
            (car (last js-nvm-current-version))
            "/bin"
            "/node"))))
 
 (defun js--is-nodejs ()
-  (string-match-p "node$" inferior-js-program-command))
+  (string-match-p "node$" js-comint-program-command))
 
 (defun js--guess-load-file-cmd (filename)
   (let ((cmd (concat "require(\"" filename "\")\n")))
@@ -175,11 +176,27 @@ Return a string representing the node version."
       (setq cmd (concat "load(\"" filename "\")\n")))
     cmd))
 
-;;;###autoload
-(defun js-clear ()
-  "Clear the *js* buffer."
+(defun js-comint-quit-or-cancel ()
+  "Send ^C to Node.js process."
   (interactive)
-  (let* ((buf (get-buffer inferior-js-buffer))
+  (process-send-string (get-process js-comint-buffer) "\x03"))
+
+(defun js-cominit-filter-output (string)
+  "Filter extra escape sequences from output."
+  (let ((beg (or comint-last-output-start
+                 (point-min-marker)))
+        (end (process-mark (get-buffer-process (current-buffer)))))
+    (save-excursion
+      (goto-char beg)
+      ;; Remove ansi escape sequences used in readline.js
+      (while (re-search-forward js-comint-drop-regexp end t)
+        (replace-match "")))))
+
+;;;###autoload
+(defun js-comint-clear ()
+  "Clear the Javascript REPL."
+  (interactive)
+  (let* ((buf (get-buffer js-comint-buffer))
          (old-buf (current-buffer)))
     (save-excursion
       (cond
@@ -187,19 +204,14 @@ Return a string representing the node version."
         (switch-to-buffer buf)
         (erase-buffer)
         (switch-to-buffer old-buf)
-        (message "*js* buffer cleared."))
+        (message "Javascript REPL cleared."))
        (t
-        (error "*js* buffer doesn't exist!"))))))
+        (error "Javascript REPL buffer doesn't exist!"))))))
+(defalias 'js-clear 'js-comint-clear)
 
 ;;;###autoload
-(defun run-js (cmd &optional dont-switch-p)
-  "Run an inferior Javascript process, input and output via buffer `*js*'.
-If there is a process already running in `*js*', switch to that buffer.
-With argument, allows you to edit the command line (default is value
-of `inferior-js-program-command').
-Runs the hook `inferior-js-mode-hook' \(after the `comint-mode-hook'
-is run).
-\(Type \\[describe-mode] in the process buffer for a list of commands.)"
+(defun js-comint-repl (cmd)
+  "Run an Javascript process."
   (interactive
    (list
     (when current-prefix-arg
@@ -208,16 +220,16 @@ is run).
                          (mapconcat
                           'identity
                           (cons
-                           inferior-js-program-command
-                           inferior-js-program-arguments)
+                           js-comint-program-command
+                           js-comint-program-arguments)
                           " ")))
       (when js-use-nvm
         (unless (featurep 'nvm)
           (require 'nvm))
         (unless js-nvm-current-version
           (js-select-node-version)))
-      (setq inferior-js-program-arguments (split-string cmd))
-      (setq inferior-js-program-command (pop inferior-js-program-arguments)))))
+      (setq js-comint-program-arguments (split-string cmd))
+      (setq js-comint-program-command (pop js-comint-program-arguments)))))
 
   (setenv "NODE_NO_READLINE" "1")
 
@@ -239,46 +251,28 @@ is run).
      (t
       (message "Can't find node_modules/"))))
 
-  (if (not (comint-check-proc "*js*"))
-      (with-current-buffer
-          (apply 'make-comint "js" inferior-js-program-command
-                 nil inferior-js-program-arguments)
-        (inferior-js-mode)))
-  (setq inferior-js-buffer "*js*")
-  (if dont-switch-p
-      (display-buffer "*js*")
-    (pop-to-buffer "*js*")))
+  (let* ((repl-mode (or (getenv "NODE_REPL_MODE") "magic"))
+         (js-comint-code (format js-comint-code-format
+                                   (window-width) js-comint-prompt repl-mode)))
+    (pop-to-buffer
+     (apply 'make-comint js-comint-buffer js-comint-program-command nil
+            `(,@js-comint-program-arguments "-e" ,js-comint-code)))
+    (js-comint-mode)))
+(defalias 'run-js 'js-comint-repl)
 
 ;;;###autoload
-(defun js-send-region (start end)
+(defun js-comint-send-region (start end)
   "Send the current region to the inferior Javascript process."
   (interactive "r")
-  (run-js inferior-js-program-command t)
-  (comint-send-region inferior-js-buffer start end)
-  (comint-send-string inferior-js-buffer "\n"))
+  (run-js js-comint-program-command t)
+  (comint-send-region js-comint-buffer start end)
+  (comint-send-string js-comint-buffer "\n"))
 
 ;;;###autoload
-(defun js-send-region-and-go (start end)
-  "Send the current region to the inferior Javascript process."
-  (interactive "r")
-  (run-js inferior-js-program-command t)
-  (comint-send-region inferior-js-buffer start end)
-  ;; (comint-send-string inferior-js-buffer "\n")
-  (switch-to-js inferior-js-buffer))
+(defalias 'js-comint-send-region 'js-send-region)
 
 ;;;###autoload
-(defun js-send-last-sexp-and-go ()
-  "Send the previous sexp to the inferior Js process."
-  (interactive)
-  (js-send-region-and-go
-   (save-excursion
-     (backward-sexp)
-     (move-beginning-of-line nil)
-     (point))
-   (point)))
-
-;;;###autoload
-(defun js-send-last-sexp ()
+(defun js-comint-send-last-sexp ()
   "Send the previous sexp to the inferior Javascript process."
   (interactive)
   (js-send-region
@@ -288,94 +282,58 @@ is run).
      (point))
    (point)))
 
-(defun js-get-buffer-point-min ()
-  (let* ((rlt (point-min)))
-    (save-excursion
-      (goto-char rlt)
-      (when (= (following-char) ?#)
-        (forward-line)
-        (setq rlt (line-beginning-position))))
-    rlt))
+;;;###autoload
+(defalias 'js-send-last-sexp 'js-comint-send-region)
 
 ;;;###autoload
-(defun js-send-buffer ()
+(defun js-comint-send-buffer ()
   "Send the buffer to the inferior Javascript process."
   (interactive)
-  (js-send-region (js-get-buffer-point-min) (point-max)))
-
-
-;;;###autoload
-(defun js-send-buffer-and-go ()
-  "Send the buffer to the inferior Javascript process."
-  (interactive)
-  (js-send-region-and-go (js-get-buffer-point-min) (point-max)))
+  (js-send-region (point-min) (point-max)))
 
 ;;;###autoload
-(defun js-load-file (filename)
+(defalias 'js-send-buffer 'js-comint-send-buffer)
+
+;;;###autoload
+(defun js-comint-load-file (filename)
   "Load a file in the javascript interpreter."
   (interactive "f")
   (let ((filename (expand-file-name filename)))
-    (run-js inferior-js-program-command t)
-    (comint-send-string inferior-js-buffer (js--guess-load-file-cmd filename))))
+    (run-js js-comint-program-command t)
+    (comint-send-string js-comint-buffer (js--guess-load-file-cmd filename))))
 
 ;;;###autoload
-(defun js-load-file-and-go (filename)
-  "Load a file in the javascript interpreter."
-  (interactive "f")
-  (let ((filename (expand-file-name filename)))
-    (run-js inferior-js-program-command t)
-    (comint-send-string inferior-js-buffer (js--guess-load-file-cmd filename))
-    (switch-to-js inferior-js-buffer)))
+(defalias 'js-load-file 'js-comint-load-file)
 
 ;;;###autoload
-(defun js-comint-process-output (string)
-  "Cleaner output."
-  (let* ((start-marker (or comint-last-output-start
-                            (point-min-marker)))
-          (end-marker (process-mark (get-buffer-process (current-buffer)))))
-    ;; shamelessly copied from `ansi-color-process-output'
-    (save-excursion
-      (goto-char start-marker)
-      (while (re-search-forward js-comint-drop-regexp end-marker t)
-        (replace-match "")))))
-
-;;;###autoload
-(defun switch-to-js (eob-p)
+(defun js-comint-switch-to-repl (eob-p)
   "Switch to the javascript process buffer.
 With argument, position cursor at end of buffer."
   (interactive "P")
-  (if (and inferior-js-buffer (get-buffer inferior-js-buffer))
-      (pop-to-buffer inferior-js-buffer)
-    (error "No current process buffer.  See variable `inferior-js-buffer'"))
-  (when eob-p
-    (push-mark)
-    (goto-char (point-max))))
+  (if (and js-comint-buffer (get-buffer js-comint-buffer))
+      (pop-to-buffer js-comint-buffer)
+    (error "No current process buffer.  See variable `js-comint-buffer'")))
+(defalias 'switch-to-js 'js-comint-switch-repl)
 
-(defvar inferior-js-mode-map
-  (let ((m (make-sparse-keymap)))
-    (define-key m "\C-x\C-e" 'js-send-last-sexp)
-    (define-key m "\C-cl" 'js-load-file)
-    m))
+(defvar js-comint-mode-map
+  (let ((map (make-sparse-keymap)))
+    (define-key map (kbd "C-c l") 'js-comint-load-file)
+    (define-key map (kbd "C-c C-c") 'js-comint-quit-or-cancel)
+    map))
+
 
 ;;;###autoload
-(define-derived-mode inferior-js-mode comint-mode "Inferior Javascript"
-  "Major mode for interacting with an inferior javascript process.
-
-The following commands are available:
-\\{inferior-js-mode-map}
-
-A javascript process can be fired up with M-x run-js.
-
-Customization: Entry to this mode runs the hooks on comint-mode-hook and
-inferior-js-mode-hook (in that order).
-
-You can send text to the inferior Javascript process from other buffers containing
-Javascript source.
-    switch-to-js switches the current buffer to the Javascript process buffer.
-    js-send-region sends the current region to the Javascript process.
-"
-  :group 'inferior-js
-  (use-local-map inferior-js-mode-map))
+(define-derived-mode js-comint-mode comint-mode "Javascript REPL"
+  :group 'js-comint
+  :syntax-table js-mode-syntax-table
+  (setq-local font-lock-defaults (list js--font-lock-keywords))
+  ;; No echo
+  (setq comint-process-echoes t)
+  ;; Ignore duplicates
+  (setq comint-input-ignoredups t)
+  (add-hook 'comint-output-filter-functions 'js-cominit-filter-output nil t)
+  (use-local-map js-comint-mode-map)
+  (ansi-color-for-comint-mode-on))
 
 (provide 'js-comint)
 ;;; js-comint.el ends here
