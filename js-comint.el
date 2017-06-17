@@ -58,9 +58,9 @@
 ;;  them.  This is done thanks to nvm.el.
 ;;  Please note nvm.el is optional. So you need *manually* install it.
 ;;  To enable nvm support, run `js-do-use-nvm'.
-;;  The first time you start the JS interpreter with run-js, you will be asked
-;;  to select a version of node.js
-;;  If you want to change version of node js, run `js-select-node-version'
+;;  The first time you start the JS interpreter with `js-comint-repl', you will
+;;be asked to select a version of Node.js
+;;  If you want to change version of node js, run `js-comint-select-node-version'
 ;;
 ;;  `js-comint-clear' clears the content of REPL.
 ;;
@@ -91,6 +91,10 @@
 (defcustom js-comint-program-command "node"
   "JavaScript interpreter."
   :group 'js-comint)
+
+(defvar js-comint-module-paths '()
+  "List of modules paths which could be used by NodeJS
+to search modules.")
 
 (defvar js-comint-drop-regexp
   "\\(\x1b\\[[0-9]+[GJK]\\|^[ \t]*undefined[\r\n]+\\)"
@@ -128,13 +132,10 @@
    "require('repl').start('%s', null, null, true, false, "
    "require('repl')['REPL_MODE_' + '%s'.toUpperCase()])"))
 
-(defvar js-prompt-regexp "^\\(?:> \\)"
-  "Prompt for `run-js'.")
-
 (defvar js-nvm-current-version nil
   "Current version of node.")
 
-(defun js-list-nvm-versions (prompt)
+(defun js-comint-list-nvm-versions (prompt)
   "List all available node versions from nvm prompting the user with PROMPT.
 Return a string representing the node version."
   (let ((candidates (sort (mapcar 'car (nvm--installed-versions)) 'string<)))
@@ -142,13 +143,14 @@ Return a string representing the node version."
                      candidates nil t nil
                      nil
                      (car candidates))))
+
 ;;;###autoload
 (defun js-do-use-nvm ()
   "Enable nvm."
   (setq js-use-nvm t))
 
 ;;;###autoload
-(defun js-select-node-version (&optional version)
+(defun js-comint-select-node-version (&optional version)
   "Use a given VERSION of node from nvm."
   (interactive)
   (if version
@@ -156,7 +158,7 @@ Return a string representing the node version."
     (let ((old-js-nvm js-nvm-current-version))
       (setq js-nvm-current-version
             (nvm--find-exact-version-for
-             (js-list-nvm-versions
+             (js-comint-list-nvm-versions
               (if old-js-nvm
                   (format "Node version (current %s): " (car old-js-nvm))
                 "Node version: "))))))
@@ -167,19 +169,94 @@ Return a string representing the node version."
            "/bin"
            "/node"))))
 
-(defun js--is-nodejs ()
-  (string-match-p "node$" js-comint-program-command))
-
-(defun js--guess-load-file-cmd (filename)
-  (let ((cmd (concat "require(\"" filename "\")\n")))
-    (when (not (js--is-nodejs))
-      (setq cmd (concat "load(\"" filename "\")\n")))
-    cmd))
+(defun js-comint-guess-load-file-cmd (filename)
+  (concat "require(\"" filename "\")\n"))
 
 (defun js-comint-quit-or-cancel ()
-  "Send ^C to Node.js process."
+  "Send ^C to Javascript REPL."
   (interactive)
   (process-send-string (get-process js-comint-buffer) "\x03"))
+
+(defun js-comint--path-sep ()
+  (if (eq system-type 'windows-nt) ";" ":"))
+
+(defun js-comint--suggest-module-path ()
+  (let* ((dir (locate-dominating-file default-directory
+                                      "node_modules")))
+    (if dir (concat (file-name-as-directory dir)
+                    "node_modules")
+      default-directory)))
+
+;;;###autoload
+(defun js-comint-add-module-path ()
+  "Add a directory to `js-comint-module-paths'."
+  (interactive)
+  (let* ((dir (read-directory-name "Module path:"
+                                   (js-comint--suggest-module-path))))
+    (when dir
+      (add-to-list 'js-comint-module-paths (file-truename dir))
+      (message "\"%s\" added to `js-comint-module-paths'" dir))))
+
+;;;###autoload
+(defun js-comint-delete-module-path ()
+  "Delete a directory from `js-comint-module-paths'."
+  (interactive)
+  (cond
+   ((not js-comint-module-paths)
+    (message "`js-comint-module-paths' is empty."))
+   (t
+    (let* ((dir (ido-completing-read "Directory to delete: "
+                                     js-comint-module-paths)))
+      (when dir
+        (setq js-comint-module-paths
+              (delete dir js-comint-module-paths))
+        (message "\"%s\" delete from `js-comint-module-paths'" dir))))))
+
+;;;###autoload
+(defun js-comint-save-setup ()
+  "Save current setup to `.dir-locals.el'"
+  (interactive)
+  (let* (sexp
+         (root (read-directory-name "Where to create .dir-locals.el: "
+                                    default-directory))
+         (file (concat (file-name-as-directory root)
+                       ".dir-locals.el")))
+    (cond
+     (js-comint-module-paths
+      (setq sexp (list (list nil (cons 'js-comint-module-paths js-comint-module-paths))))
+      (with-temp-buffer
+        (insert (format "%S" sexp))
+        (write-file file)
+        (message "%s created." file)))
+     (t
+      (message "Nothing to save. `js-comint-module-paths' is empty.")))))
+
+(defun js-comint-setup-module-paths ()
+  (let* ((paths (mapconcat 'identity
+                           js-comint-module-paths
+                           (js-comint--path-sep)))
+         (node-path (getenv "NODE_PATH")))
+    (cond
+     ((or (not node-path)
+          (string= "" node-path))
+      ;; set
+      (setenv "NODE_PATH" paths))
+     ((not (string= "" paths))
+      ;; append
+      (setenv "NODE_PATH" (concat node-path (js-comint--path-sep) paths))
+      (message "%s added into \$NODE_PATH" paths)))))
+
+;;;###autoload
+(defun js-comint-reset-repl ()
+  "Kill existing REPL process if possible.  Create a new
+Javascript REPL process.  The environment variable `NODE_PATH'
+is setup by `js-comint-module-paths' before the process starts."
+  (interactive)
+  (when (get-process js-comint-buffer)
+    (process-send-string (get-process js-comint-buffer) ".exit\n")
+    ;; wait the process to be killed
+    (sit-for 1))
+  (js-comint-start-or-switch-to-repl))
 
 (defun js-cominit-filter-output (string)
   "Filter extra escape sequences from output."
@@ -209,62 +286,47 @@ Return a string representing the node version."
         (error "Javascript REPL buffer doesn't exist!"))))))
 (defalias 'js-clear 'js-comint-clear)
 
-;;;###autoload
-(defun js-comint-repl (cmd)
-  "Run an Javascript process."
-  (interactive
-   (list
-    (when current-prefix-arg
-      (setq cmd
-            (read-string "Run js: "
-                         (mapconcat
-                          'identity
-                          (cons
-                           js-comint-program-command
-                           js-comint-program-arguments)
-                          " ")))
-      (when js-use-nvm
-        (unless (featurep 'nvm)
-          (require 'nvm))
-        (unless js-nvm-current-version
-          (js-select-node-version)))
-      (setq js-comint-program-arguments (split-string cmd))
-      (setq js-comint-program-command (pop js-comint-program-arguments)))))
 
+(defun js-comint-start-or-switch-to-repl ()
   (setenv "NODE_NO_READLINE" "1")
-
-  ;; add "node_modules/" into $NODE_PATH
-  (let* ((node-modules (locate-dominating-file default-directory "node_modules"))
-         (node-path (getenv "NODE_PATH")))
-    (cond
-     (node-modules
-      (setq node-modules (concat (file-name-as-directory node-modules) "node_modules"))
-      (cond
-       ((or (not node-path)
-            (string= "" node-path))
-        ;; set
-        (setenv "NODE_PATH" node-modules))
-       ((not (string-match-p node-modules node-path))
-        ;; append
-        (setenv "NODE_PATH" (concat node-path ":" node-modules))))
-      (message "%s added into \$NODE_PATH" node-modules))
-     (t
-      (message "Can't find node_modules/"))))
-
+  (js-comint-setup-module-paths)
   (let* ((repl-mode (or (getenv "NODE_REPL_MODE") "magic"))
          (js-comint-code (format js-comint-code-format
-                                   (window-width) js-comint-prompt repl-mode)))
+                                 (window-width) js-comint-prompt repl-mode)))
     (pop-to-buffer
      (apply 'make-comint js-comint-buffer js-comint-program-command nil
             `(,@js-comint-program-arguments "-e" ,js-comint-code)))
     (js-comint-mode)))
+
+;;;###autoload
+(defun js-comint-repl (cmd)
+  "Run an Javascript process.  The environment variable `NODE_PATH'
+is setup by `js-comint-module-paths' before the process
+starts."
+  (interactive
+   (list
+    ;; You can select node version here
+    (when current-prefix-arg
+      (setq cmd
+            (read-string "Run js: "
+                         (format "%s %s"
+                                 js-comint-program-command
+                                 js-comint-program-arguments)))
+      (when js-use-nvm
+        (unless (featurep 'nvm)
+          (require 'nvm))
+        (unless js-nvm-current-version
+          (js-comint-select-node-version)))
+      (setq js-comint-program-arguments (split-string cmd))
+      (setq js-comint-program-command (pop js-comint-program-arguments)))))
+  (js-comint-start-or-switch-to-repl))
 (defalias 'run-js 'js-comint-repl)
 
 ;;;###autoload
 (defun js-comint-send-region (start end)
   "Send the current region to the inferior Javascript process."
   (interactive "r")
-  (run-js js-comint-program-command t)
+  (js-comint-repl js-comint-program-command)
   (comint-send-region js-comint-buffer start end)
   (comint-send-string js-comint-buffer "\n"))
 
@@ -299,8 +361,8 @@ Return a string representing the node version."
   "Load a file in the javascript interpreter."
   (interactive "f")
   (let ((filename (expand-file-name filename)))
-    (run-js js-comint-program-command t)
-    (comint-send-string js-comint-buffer (js--guess-load-file-cmd filename))))
+    (js-comint-repl js-comint-program-command)
+    (comint-send-string js-comint-buffer (js-comint-guess-load-file-cmd filename))))
 
 ;;;###autoload
 (defalias 'js-load-file 'js-comint-load-file)
@@ -317,7 +379,6 @@ With argument, position cursor at end of buffer."
 
 (defvar js-comint-mode-map
   (let ((map (make-sparse-keymap)))
-    (define-key map (kbd "C-c l") 'js-comint-load-file)
     (define-key map (kbd "C-c C-c") 'js-comint-quit-or-cancel)
     map))
 
