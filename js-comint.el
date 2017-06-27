@@ -331,7 +331,7 @@ starts."
   (comint-send-string js-comint-buffer "\n"))
 
 ;;;###autoload
-(defalias 'js-comint-send-region 'js-send-region)
+(defalias 'js-send-region 'js-comint-send-region)
 
 ;;;###autoload
 (defun js-comint-send-last-sexp ()
@@ -345,7 +345,7 @@ starts."
    (point)))
 
 ;;;###autoload
-(defalias 'js-send-last-sexp 'js-comint-send-region)
+(defalias 'js-send-last-sexp 'js-comint-send-last-sexp)
 
 ;;;###autoload
 (defun js-comint-send-buffer ()
