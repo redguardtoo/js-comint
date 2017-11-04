@@ -8,7 +8,7 @@
 ;;; Maintainer: Chen Bin <chenbin.sh AT gmail DOT com>
 ;;; Created: 15 Feb 2014
 ;;; Version: 1.1.0
-;;; URL: https://github.com/js-comint/js-comint
+;;; URL: https://github.com/redguardtoo/js-comint
 ;;; Package-Requires: ()
 ;;; Keywords: javascript, node, inferior-mode, convenience
 
