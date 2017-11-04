@@ -252,7 +252,7 @@ is setup by `js-comint-module-paths' before the process starts."
     (sit-for 1))
   (js-comint-start-or-switch-to-repl))
 
-(defun js-cominit-filter-output (string)
+(defun js-comint-filter-output (string)
   "Filter extra escape sequences from output."
   (let ((beg (or comint-last-output-start
                  (point-min-marker)))
@@ -408,7 +408,7 @@ With argument, position cursor at end of buffer."
   (setq comint-process-echoes t)
   ;; Ignore duplicates
   (setq comint-input-ignoredups t)
-  (add-hook 'comint-output-filter-functions 'js-cominit-filter-output nil t)
+  (add-hook 'comint-output-filter-functions 'js-comint-filter-output nil t)
   (use-local-map js-comint-mode-map)
   (ansi-color-for-comint-mode-on))
 
