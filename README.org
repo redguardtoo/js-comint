@@ -48,18 +48,18 @@ You can =M-x js-clear= before =M-x js-send-buffer= to get clean output.
 
 In order to get cleaner output when using NodeJS, I suggest add below setup into =.emacs=,
 #+begin_src elisp
-(defun inferior-js-mode-hook-setup ()
+(defun js-comint-mode-hook-setup ()
   (add-hook 'comint-output-filter-functions 'js-comint-process-output))
-(add-hook 'inferior-js-mode-hook 'inferior-js-mode-hook-setup t)
+(add-hook 'js-comint-mode-hook 'js-comint-mode-hook-setup t)
 #+end_src
 * Customization
-You can set the `inferior-js-program-command' string and the `inferior-js-program-arguments' list to the executable that runs the JS interpreter and the arguments to pass to it respectively.
+You can set the `js-comint-program-command' string and the `js-comint-program-arguments' list to the executable that runs the JS interpreter and the arguments to pass to it respectively.
 
 E.g., the default is:
 #+BEGIN_SRC elisp
 ;; You can also customize `js-comint-drop-regexp' to filter output
-(setq inferior-js-program-command "node")
-(setq inferior-js-program-arguments '("--interactive"))
+(setq js-comint-program-command "node")
+(setq js-comint-program-arguments '("--interactive"))
 #+END_SRC
 
 Note that in the example above, the version of node that is picked up will be the first found in `exec-path'.
@@ -68,8 +68,8 @@ But you could use Rhino or SpiderMonkey or whatever you want.
 E.g. to set up the Rhino JAR downloaded from https://github.com/mozilla/rhino, do
 
 #+BEGIN_SRC elisp
-(setq inferior-js-program-command "java")
-(setq inferior-js-program-arguments '("-jar" "/absolute/path/to/rhino/js.jar"))
+(setq js-comint-program-command "java")
+(setq js-comint-program-arguments '("-jar" "/absolute/path/to/rhino/js.jar"))
 #+END_SRC
 
 If you have nvm, you can select the versions of node.js installed and run them. This is done thanks to =nvm.el=. =nvm.el= is optional. So you need *manually* install it.
