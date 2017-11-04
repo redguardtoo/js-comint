@@ -46,12 +46,8 @@ require('moment')().format('YYYY-MM-DD');
 
 You can =M-x js-clear= before =M-x js-send-buffer= to get clean output.
 
-In order to get cleaner output when using NodeJS, I suggest add below setup into =.emacs=,
-#+begin_src elisp
-(defun inferior-js-mode-hook-setup ()
-  (add-hook 'comint-output-filter-functions 'js-comint-process-output))
-(add-hook 'inferior-js-mode-hook 'inferior-js-mode-hook-setup t)
-#+end_src
+Output matching `js-comint-drop-regexp` will be dropped silently. You can customize it.
+
 * Customization
 You can set the `inferior-js-program-command' string and the `inferior-js-program-arguments' list to the executable that runs the JS interpreter and the arguments to pass to it respectively.
 
