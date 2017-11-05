@@ -252,7 +252,7 @@ is setup by `js-comint-module-paths' before the process starts."
     (sit-for 1))
   (js-comint-start-or-switch-to-repl))
 
-(defun js-cominit-filter-output (string)
+(defun js-comint-filter-output (string)
   "Filter extra escape sequences from output."
   (let ((beg (or comint-last-output-start
                  (point-min-marker)))
@@ -262,6 +262,7 @@ is setup by `js-comint-module-paths' before the process starts."
       ;; Remove ansi escape sequences used in readline.js
       (while (re-search-forward js-comint-drop-regexp end t)
         (replace-match "")))))
+(define-obsolete-function-alias 'js-cominit-filter-output 'js-comint-filter-output "1.1.0")
 
 (defun js-comint-get-buffer-name ()
   (format "*%s*" js-comint-buffer))
@@ -408,7 +409,7 @@ With argument, position cursor at end of buffer."
   (setq comint-process-echoes t)
   ;; Ignore duplicates
   (setq comint-input-ignoredups t)
-  (add-hook 'comint-output-filter-functions 'js-cominit-filter-output nil t)
+  (add-hook 'comint-output-filter-functions 'js-comint-filter-output nil t)
   (use-local-map js-comint-mode-map)
   (ansi-color-for-comint-mode-on))
 
