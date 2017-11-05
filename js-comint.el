@@ -262,6 +262,7 @@ is setup by `js-comint-module-paths' before the process starts."
       ;; Remove ansi escape sequences used in readline.js
       (while (re-search-forward js-comint-drop-regexp end t)
         (replace-match "")))))
+(define-obsolete-function-alias 'js-cominit-filter-output 'js-comint-filter-output "1.1.0")
 
 (defun js-comint-get-buffer-name ()
   (format "*%s*" js-comint-buffer))
