@@ -1,4 +1,4 @@
-* js-comint.el (v1.1.0)
+* js-comint.el (v1.1.1)
 Run a JavaScript interpreter in an inferior process window
 
 The first release, [[http://js-comint-el.sourceforge.net/][js-comint 0.0.1, is hosted on sourceforge]] but it has not been updated for five years.
@@ -36,6 +36,11 @@ Add js-comint to your Cask file:
 (depends-on "js-comint")
 #+END_SRC
 
+** Windows
+On window, you may need below setup:
+#+begin_src elisp
+(setq inferior-js-program-command "C:/Program Files/nodejs/node.exe")
+#+end_src
 * Usage
 After installation, do `M-x run-js` to create a comint buffer with the JavaScript interpreter.
 
