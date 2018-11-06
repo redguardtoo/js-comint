@@ -39,7 +39,7 @@ Add js-comint to your Cask file:
 ** Windows
 On window, you may need below setup:
 #+begin_src elisp
-(setq inferior-js-program-command "C:/Program Files/nodejs/node.exe")
+(setq js-comint-program-command "C:/Program Files/nodejs/node.exe")
 #+end_src
 * Usage
 After installation, do `M-x run-js` to create a comint buffer with the JavaScript interpreter.
@@ -58,13 +58,13 @@ In order to get cleaner output when using NodeJS, I suggest add below setup into
 (add-hook 'inferior-js-mode-hook 'inferior-js-mode-hook-setup t)
 #+end_src
 * Customization
-You can set the `inferior-js-program-command' string and the `inferior-js-program-arguments' list to the executable that runs the JS interpreter and the arguments to pass to it respectively.
+You can set the `js-comint-program-command' string and the `js-comint-program-arguments' list to the executable that runs the JS interpreter and the arguments to pass to it respectively.
 
 E.g., the default is:
 #+BEGIN_SRC elisp
 ;; You can also customize `js-comint-drop-regexp' to filter output
-(setq inferior-js-program-command "node")
-(setq inferior-js-program-arguments '("--interactive"))
+(setq js-comint-program-command "node")
+(setq js-comint-program-arguments '("--interactive"))
 #+END_SRC
 
 Note that in the example above, the version of node that is picked up will be the first found in `exec-path'.
@@ -73,8 +73,8 @@ But you could use Rhino or SpiderMonkey or whatever you want.
 E.g. to set up the Rhino JAR downloaded from https://github.com/mozilla/rhino, do
 
 #+BEGIN_SRC elisp
-(setq inferior-js-program-command "java")
-(setq inferior-js-program-arguments '("-jar" "/absolute/path/to/rhino/js.jar"))
+(setq js-comint-program-command "java")
+(setq js-comint-program-arguments '("-jar" "/absolute/path/to/rhino/js.jar"))
 #+END_SRC
 
 If you have nvm, you can select the versions of node.js installed and run them. This is done thanks to =nvm.el=. =nvm.el= is optional. So you need *manually* install it.
@@ -89,11 +89,9 @@ The first time you start the JS interpreter with run-js, you will be asked to se
 You can add the following couple of lines to your .emacs to take advantage of cool key bindings for sending things to the javascript interpreter inside of Steve Yegge's most excellent js2-mode.
 
 #+BEGIN_SRC elisp
-(add-hook 'js2-mode-hook
-          (lambda ()
-            (local-set-key (kbd "C-x C-e") 'js-send-last-sexp)
-            (local-set-key (kbd "C-M-x") 'js-send-last-sexp-and-go)
-            (local-set-key (kbd "C-c b") 'js-send-buffer)
-            (local-set-key (kbd "C-c C-b") 'js-send-buffer-and-go)
-            (local-set-key (kbd "C-c l") 'js-load-file-and-go)))
+  (add-hook 'js2-mode-hook
+            (lambda ()
+              (local-set-key (kbd "C-x C-e") 'js-send-last-sexp)
+              (local-set-key (kbd "C-c b") 'js-send-buffer)
+              (local-set-key (kbd "C-c C-b") 'js-send-buffer-and-go)))
 #+END_SRC
