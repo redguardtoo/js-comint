@@ -422,6 +422,8 @@ If no region selected, you could manually input javascript expression."
   ;; Ignore duplicates
   (setq comint-input-ignoredups t)
   (add-hook 'comint-output-filter-functions 'js-comint-filter-output nil t)
+  (process-put (js-comint-get-process)
+               'adjust-window-size-function (lambda (_process _windows) ()))
   (use-local-map js-comint-mode-map)
   (ansi-color-for-comint-mode-on))
 
