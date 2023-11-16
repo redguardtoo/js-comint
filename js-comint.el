@@ -359,7 +359,7 @@ The environment variable \"NODE_PATH\" is setup by `js-comint-module-paths'."
 
 (defun js-comint-send-string (str)
   "Send STR to repl."
-  (let ((lines (split-string str "\r\n")))
+  (let ((lines (split-string str "\n")))
     (if (= (length lines) 1)
 	(comint-send-string (js-comint-get-process)
 			    (concat str "\n"))
