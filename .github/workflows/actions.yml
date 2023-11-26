@@ -1,0 +1,16 @@
+name: Run tests across emacs versions
+on: [push, pull_request]
+jobs:
+  test-emacs-versions:
+    strategy:
+      matrix:
+        emacs-version: [26, 27, 28, 29]
+    runs-on: ubuntu-latest
+    container: silex/emacs:${{matrix.emacs-version}}
+    steps:
+      - name: Check out repository code
+        uses: actions/checkout@v4
+      - name: Install test dependencies
+        run: ./install-deps.sh
+      - name: Run tests
+        run: ./runtests.sh
