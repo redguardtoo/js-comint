@@ -1,4 +1,4 @@
-;;; js-comint.el --- JavaScript interpreter in window.
+;;; js-comint.el --- JavaScript interpreter in window.  -*- lexical-binding: t -*-
 
 ;;; Copyright (C) 2008 Paul Huff
 ;;; Copyright (C) 2015 Stefano Mazzucco
