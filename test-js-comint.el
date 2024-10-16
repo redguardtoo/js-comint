@@ -1,3 +1,8 @@
+;; -*- lexical-binding: t -*-
+
+(require 'js-comint)
+(require 'ert)
+
 (defun js-comint-test-buffer-matches (regex)
   "Search the js-comint buffer for the given regular expression.
 Return 't if a match is found, nil otherwise."
