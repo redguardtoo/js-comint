@@ -242,28 +242,10 @@ Return a string representing the node version."
      (t
       (message "Nothing to save. `js-comint-module-paths' is empty.")))))
 
-(defun js-comint-setup-module-paths ()
-  "Setup node_modules path."
-  (let* ((paths (mapconcat 'identity
-                           js-comint-module-paths
-                           (js-comint--path-sep)))
-         (node-path (getenv "NODE_PATH")))
-    (cond
-     ((or (not node-path)
-          (string= "" node-path))
-      ;; set
-      (setenv "NODE_PATH" paths))
-     ((not (string= "" paths))
-      ;; append
-      (setenv "NODE_PATH" (concat node-path (js-comint--path-sep) paths))
-      (message "%s added into \$NODE_PATH" paths)))))
-
 ;;;###autoload
 (defun js-comint-reset-repl ()
   "Kill existing REPL process if possible.
-Create a new Javascript REPL process.
-The environment variable `NODE_PATH' is setup by `js-comint-module-paths'
-before the process starts."
+Create a new Javascript REPL process."
   (interactive)
   (when (js-comint-get-process)
     (process-send-string (js-comint-get-process) ".exit\n")
@@ -332,8 +314,7 @@ Optional NODE-MODULES-PATH is the path to a local node_modules to use."
 
 ;;;###autoload
 (defun js-comint-repl (cmd)
-  "Start a Javascript process by running CMD.
-The environment variable \"NODE_PATH\" is setup by `js-comint-module-paths'."
+  "Start a Javascript process by running CMD."
   (interactive
    (list
     ;; You can select node version here
