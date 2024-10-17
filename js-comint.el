@@ -92,10 +92,12 @@
 
 (defcustom js-comint-program-command "node"
   "JavaScript interpreter."
+  :type 'string
   :group 'js-comint)
 
 (defcustom js-comint-set-env-when-startup t
   "Set environment variable NODE_PATH automatically during startup."
+  :type 'boolean
   :group 'js-comint)
 
 (defvar js-comint-module-paths '()
@@ -107,6 +109,7 @@
 
 (defcustom js-comint-program-arguments '()
   "List of command line arguments passed to the JavaScript interpreter."
+  :type '(list string)
   :group 'js-comint)
 
 (defcustom js-comint-prompt "> "
