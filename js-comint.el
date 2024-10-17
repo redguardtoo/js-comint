@@ -319,7 +319,7 @@ before the process starts."
   (js-comint-setup-module-paths)
   (let* ((repl-mode (or (getenv "NODE_REPL_MODE") "magic"))
          (js-comint-code (format js-comint-code-format
-                                 (window-width) js-comint-prompt repl-mode)))
+                        (window-width) js-comint-prompt repl-mode)))
     (pop-to-buffer
      (apply 'make-comint js-comint-buffer js-comint-program-command nil
             `(,@js-comint-program-arguments "-e" ,js-comint-code)))
@@ -339,21 +339,20 @@ The environment variable \"NODE_PATH\" is setup by `js-comint-module-paths'."
                                  js-comint-program-command
                                  js-comint-program-arguments)))
       (when js-use-nvm
-        (unless (featurep 'nvm) (require 'nvm))
+        (require 'nvm)
         (unless js-nvm-current-version (js-comint-select-node-version)))
 
-            (setq js-comint-program-arguments (split-string cmd))
+      (setq js-comint-program-arguments (split-string cmd))
       (setq js-comint-program-command (pop js-comint-program-arguments)))))
 
-  ;; set NOT_PATH automatically
-  (cond
-   ((and js-comint-set-env-when-startup
-             (file-exists-p (js-comint--suggest-module-path)))
-    (let* ((js-comint-module-paths (nconc (list (file-truename (js-comint--suggest-module-path)))
-                                          js-comint-module-paths)))
-      (js-comint-start-or-switch-to-repl)))
-   (t
-    (js-comint-start-or-switch-to-repl))))
+  ;; set NODE_PATH automatically
+  (if (and js-comint-set-env-when-startup
+           (file-exists-p (js-comint--suggest-module-path)))
+      (let ((js-comint-module-paths (cons (file-truename (js-comint--suggest-module-path))
+                                 js-comint-module-paths)))
+        (js-comint-start-or-switch-to-repl))
+    ;; else
+    (js-comint-start-or-switch-to-repl)))
 
 (defalias 'run-js 'js-comint-repl)
 
