@@ -47,3 +47,48 @@ DOS line separators."
 map((it) => it + 1).
 filter((it) => it > 0).
 reduce((prev, curr) => prev + curr, 0);" "^9$")))
+
+(ert-deftest js-comint-start-or-switch-to-repl/test-no-modules ()
+  "Should preserve node_path when nothing is set."
+  (let ((original js-comint-module-paths)
+        (original-env (getenv "NODE_PATH")))
+    (unwind-protect
+        (progn
+          (setq js-comint-module-paths '())
+          (setenv "NODE_PATH" "/foo/bar")
+          (js-comint-start-or-switch-to-repl)
+          (sit-for 1)
+          (js-comint-send-string "process.env['NODE_PATH'];")
+          (js-comint-test-buffer-matches "/foo/bar"))
+      (setq js-comint-module-paths original)
+      (setenv "NODE_PATH" original-env))))
+
+(ert-deftest js-comint-start-or-switch-to-repl/test-global-set ()
+  "Should include the value of `js-comint-node-modules' if set."
+  (let ((original js-comint-module-paths)
+        (original-env (getenv "NODE_PATH")))
+    (unwind-protect
+        (progn
+          (setq js-comint-module-paths '("/baz/xyz"))
+          (setenv "NODE_PATH" "/foo/bar")
+          (js-comint-start-or-switch-to-repl)
+          (sit-for 1)
+          (js-comint-send-string "process.env['NODE_PATH'];")
+          (js-comint-test-buffer-matches (concat "/foo/bar" (js-comint--path-sep) "/baz/xyz")))
+      (setq js-comint-module-paths original)
+      (setenv "NODE_PATH" original-env))))
+
+(ert-deftest js-comint-start-or-switch-to-repl/test-local ()
+  "Should include the optional node-modules-path."
+  (let ((original js-comint-module-paths)
+        (original-env (getenv "NODE_PATH")))
+    (unwind-protect
+        (progn
+          (setq js-comint-module-paths '())
+          (setenv "NODE_PATH" "/foo/bar")
+          (js-comint-start-or-switch-to-repl "/baz/xyz")
+          (sit-for 1)
+          (js-comint-send-string "process.env['NODE_PATH'];")
+          (js-comint-test-buffer-matches (concat "/foo/bar" (js-comint--path-sep) "/baz/xyz")))
+      (setq js-comint-module-paths original)
+      (setenv "NODE_PATH" original-env))))
