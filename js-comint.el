@@ -193,7 +193,7 @@ Return a string representing the node version."
 (defun js-comint--suggest-module-path ()
   "Path to node_modules in parent dirs, or nil if none exists."
   (when-let ((dir (locate-dominating-file default-directory "node_modules")))
-      (concat (file-name-as-directory dir) "node_modules")))
+    (expand-file-name "node_modules" dir)))
 
 (defun js-comint-get-process ()
   "Get repl process."
@@ -205,8 +205,7 @@ Return a string representing the node version."
   "Add a directory to `js-comint-module-paths'."
   (interactive)
   (let ((dir (read-directory-name "Module path:"
-                                  (or (js-comint--suggest-module-path)
-                                      default-directory))))
+                                  (js-comint--suggest-module-path))))
     (when dir
       (add-to-list 'js-comint-module-paths (file-truename dir))
       (message "\"%s\" added to `js-comint-module-paths'" dir))))
@@ -341,12 +340,9 @@ set CMD."
     (setq js-comint-program-arguments (split-string cmd))
     (setq js-comint-program-command (pop js-comint-program-arguments)))
 
-  ;; set NODE_PATH automatically
-  (if-let ((module-path (and js-comint-set-env-when-startup
-                             (js-comint--suggest-module-path))))
-      (js-comint-start-or-switch-to-repl (file-truename module-path))
-    ;; else
-    (js-comint-start-or-switch-to-repl)))
+  ;; set NODE_PATH if js-comint-set-env-when-startup is true
+  (js-comint-start-or-switch-to-repl (and js-comint-set-env-when-startup
+                                 (js-comint--suggest-module-path))))
 
 (defalias 'run-js 'js-comint-repl)
 
