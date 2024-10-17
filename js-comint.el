@@ -188,12 +188,9 @@ Return a string representing the node version."
   (if (eq system-type 'windows-nt) ";" ":"))
 
 (defun js-comint--suggest-module-path ()
-  "Find node_modules."
-  (let* ((dir (locate-dominating-file default-directory
-                                      "node_modules")))
-    (if dir (concat (file-name-as-directory dir)
-                    "node_modules")
-      default-directory)))
+  "Path to node_modules in parent dirs, or nil if none exists."
+  (when-let ((dir (locate-dominating-file default-directory "node_modules")))
+      (concat (file-name-as-directory dir) "node_modules")))
 
 (defun js-comint-get-process ()
   "Get repl process."
@@ -204,8 +201,9 @@ Return a string representing the node version."
 (defun js-comint-add-module-path ()
   "Add a directory to `js-comint-module-paths'."
   (interactive)
-  (let* ((dir (read-directory-name "Module path:"
-                                   (js-comint--suggest-module-path))))
+  (let ((dir (read-directory-name "Module path:"
+                                  (or (js-comint--suggest-module-path)
+                                      default-directory))))
     (when dir
       (add-to-list 'js-comint-module-paths (file-truename dir))
       (message "\"%s\" added to `js-comint-module-paths'" dir))))
@@ -347,7 +345,7 @@ The environment variable \"NODE_PATH\" is setup by `js-comint-module-paths'."
 
   ;; set NODE_PATH automatically
   (if (and js-comint-set-env-when-startup
-           (file-exists-p (js-comint--suggest-module-path)))
+           (js-comint--suggest-module-path))
       (let ((js-comint-module-paths (cons (file-truename (js-comint--suggest-module-path))
                                  js-comint-module-paths)))
         (js-comint-start-or-switch-to-repl))
