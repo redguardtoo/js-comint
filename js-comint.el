@@ -313,23 +313,30 @@ Optional NODE-MODULES-PATH is the path to a local node_modules to use."
     (js-comint-mode)))
 
 ;;;###autoload
-(defun js-comint-repl (cmd)
-  "Start a Javascript process by running CMD."
-  (interactive
-   (list
-    ;; You can select node version here
-    (when current-prefix-arg
-      (setq cmd
-            (read-string "Run js: "
-                         (format "%s %s"
-                                 js-comint-program-command
-                                 js-comint-program-arguments)))
-      (when js-use-nvm
-        (require 'nvm)
-        (unless js-nvm-current-version (js-comint-select-node-version)))
+(defun js-comint-repl (&optional cmd)
+  "Start a NodeJS REPL process.
+Optional CMD will override `js-comint-program-command' and
+`js-comint-program-arguments', as well as any nvm setting.
 
-      (setq js-comint-program-arguments (split-string cmd))
-      (setq js-comint-program-command (pop js-comint-program-arguments)))))
+When called interactively use a universal prefix to
+set CMD."
+  (interactive
+   (when current-prefix-arg
+     (list
+      (read-string "Run js: "
+                   (string-join
+                           (cons js-comint-program-command
+                                 js-comint-program-arguments)
+                           " ")))))
+
+  (when (and (not cmd)
+             js-use-nvm)
+    (require 'nvm)
+    (unless js-nvm-current-version (js-comint-select-node-version)))
+
+  (when cmd
+    (setq js-comint-program-arguments (split-string cmd))
+    (setq js-comint-program-command (pop js-comint-program-arguments)))
 
   ;; set NODE_PATH automatically
   (if-let ((module-path (and js-comint-set-env-when-startup
@@ -398,7 +405,7 @@ If no region selected, you could manually input javascript expression."
   "Load FILE into the javascript interpreter."
   (interactive "f")
   (let ((file (expand-file-name file)))
-    (js-comint-repl js-comint-program-command)
+    (js-comint-repl)
     (comint-send-string (js-comint-get-process) (js-comint-guess-load-file-cmd file))))
 
 ;;;###autoload
