@@ -310,17 +310,24 @@ before the process starts."
 
 
 ;;;###autoload
-(defun js-comint-start-or-switch-to-repl ()
-  "Start a new repl or switch to existing repl."
+(defun js-comint-start-or-switch-to-repl (&optional node-modules-path)
+  "Start a new repl or switch to existing repl.
+Optional NODE-MODULES-PATH is the path to a local node_modules to use."
   (interactive)
-  (setenv "NODE_NO_READLINE" "1")
-  (js-comint-setup-module-paths)
-  (let* ((repl-mode (or (getenv "NODE_REPL_MODE") "magic"))
+  (let* ((node-path (getenv "NODE_PATH"))
+         (all-paths-list (flatten-list (list node-path
+                                             node-modules-path
+                                             js-comint-module-paths)))
+         (local-node-path (string-join all-paths-list (js-comint--path-sep)))
+         (repl-mode (or (getenv "NODE_REPL_MODE") "magic"))
          (js-comint-code (format js-comint-code-format
                         (window-width) js-comint-prompt repl-mode)))
-    (pop-to-buffer
-     (apply 'make-comint js-comint-buffer js-comint-program-command nil
-            `(,@js-comint-program-arguments "-e" ,js-comint-code)))
+    ;; TODO what happens if you switch into this from a different project?
+    (with-environment-variables (("NODE_NO_READLINE" "1")
+                                 ("NODE_PATH" local-node-path))
+      (pop-to-buffer
+       (apply 'make-comint js-comint-buffer js-comint-program-command nil
+              `(,@js-comint-program-arguments "-e" ,js-comint-code))))
     (js-comint-mode)))
 
 ;;;###autoload
@@ -344,11 +351,9 @@ The environment variable \"NODE_PATH\" is setup by `js-comint-module-paths'."
       (setq js-comint-program-command (pop js-comint-program-arguments)))))
 
   ;; set NODE_PATH automatically
-  (if (and js-comint-set-env-when-startup
-           (js-comint--suggest-module-path))
-      (let ((js-comint-module-paths (cons (file-truename (js-comint--suggest-module-path))
-                                 js-comint-module-paths)))
-        (js-comint-start-or-switch-to-repl))
+  (if-let ((module-path (and js-comint-set-env-when-startup
+                             (js-comint--suggest-module-path))))
+      (js-comint-start-or-switch-to-repl (file-truename module-path))
     ;; else
     (js-comint-start-or-switch-to-repl)))
 
