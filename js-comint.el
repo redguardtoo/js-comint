@@ -294,11 +294,13 @@ Create a new Javascript REPL process."
 
 
 ;;;###autoload
-(defun js-comint-start-or-switch-to-repl (&optional node-modules-path)
-  "Start a new repl or switch to existing repl.
-Optional NODE-MODULES-PATH is the path to a local node_modules to use."
+(defun js-comint-start-or-switch-to-repl ()
+  "Start a new repl or switch to existing repl."
   (interactive)
   (let* ((node-path (getenv "NODE_PATH"))
+         ;; The path to a local node_modules
+         (node-modules-path (and js-comint-set-env-when-startup
+                                 (js-comint--suggest-module-path)))
          (all-paths-list (flatten-list (list node-path
                                              node-modules-path
                                              js-comint-module-paths)))
@@ -340,9 +342,7 @@ set CMD."
     (setq js-comint-program-arguments (split-string cmd))
     (setq js-comint-program-command (pop js-comint-program-arguments)))
 
-  ;; set NODE_PATH if js-comint-set-env-when-startup is true
-  (js-comint-start-or-switch-to-repl (and js-comint-set-env-when-startup
-                                 (js-comint--suggest-module-path))))
+  (js-comint-start-or-switch-to-repl))
 
 (defalias 'run-js 'js-comint-repl)
 
