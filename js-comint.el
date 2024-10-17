@@ -273,8 +273,8 @@ before the process starts."
     (sit-for 1))
   (js-comint-start-or-switch-to-repl))
 
-(defun js-comint-filter-output (string)
-  "Filter extra escape sequences from STRING."
+(defun js-comint-filter-output (_string)
+  "Filter extra escape sequences from last output."
   (let ((beg (or comint-last-output-start
                  (point-min-marker)))
         (end (process-mark (get-buffer-process (current-buffer)))))
