@@ -97,7 +97,7 @@ reduce((prev, curr) => prev + curr, 0);" "^9$")))
   (let ((original js-comint-module-paths)
         (original-set-env js-comint-set-env-when-startup)
         (original-env (getenv "NODE_PATH"))
-        (original-suggest js-comint--suggest-module-path))
+        (original-suggest (symbol-function 'js-comint--suggest-module-path)))
     (unwind-protect
         (progn
           (fset 'js-comint--suggest-module-path (lambda () "/baz/xyz"))
