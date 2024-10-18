@@ -335,7 +335,10 @@ set CMD."
   (if cmd
       (let ((cmd-parts (split-string cmd)))
         (setq js-comint-program-arguments (cdr cmd-parts)
-              js-comint-program-command (car cmd-parts)))
+              js-comint-program-command (car cmd-parts))
+        (when js-nvm-current-version
+          (message "nvm node version overridden, reset with M-x js-comint-select-node-version")
+          (setq js-use-nvm nil)))
     (when (and js-use-nvm
                (not js-nvm-current-version))
       (js-comint-select-node-version)))
