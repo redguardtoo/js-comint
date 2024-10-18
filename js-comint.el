@@ -143,6 +143,9 @@
 (defvar js-nvm-current-version nil
   "Current version of node.")
 
+(declare-function nvm--installed-versions "nvm.el" ())
+(declare-function nvm--find-exact-version-for "nvm.el" (short))
+
 (defun js-comint-list-nvm-versions (prompt)
   "List all available node versions from nvm prompting the user with PROMPT.
 Return a string representing the node version."
