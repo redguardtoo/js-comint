@@ -141,7 +141,8 @@
    "require('repl')['REPL_MODE_' + '%s'.toUpperCase()])"))
 
 (defvar js-nvm-current-version nil
-  "Current version of node.")
+  "Current version of node for js-comint.
+Either nil or a list (VERSION-STRING PATH).")
 
 (declare-function nvm--installed-versions "nvm.el" ())
 (declare-function nvm--find-exact-version-for "nvm.el" (short))
@@ -164,21 +165,17 @@ Return a string representing the node version."
 (defun js-comint-select-node-version (&optional version)
   "Use a given VERSION of node from nvm."
   (interactive)
-  (if version
-      (setq js-nvm-current-version (nvm--find-exact-version-for version))
-    (let ((old-js-nvm js-nvm-current-version))
-      (setq js-nvm-current-version
-            (nvm--find-exact-version-for
-             (js-comint-list-nvm-versions
-              (if old-js-nvm
-                  (format "Node version (current %s): " (car old-js-nvm))
-                "Node version: "))))))
-  (progn
-    (setq js-comint-program-command
-          (concat
-           (car (last js-nvm-current-version))
-           "/bin"
-           "/node"))))
+  (require 'nvm)
+  (setq js-use-nvm t) ;; NOTE: js-use-nvm could probably be deprecated
+  (unless version
+    (let* ((old-js-nvm (car js-nvm-current-version))
+           (prompt (if old-js-nvm
+                       (format "Node version (current %s): " old-js-nvm)
+                     "Node version: ")))
+      (setq version (js-comint-list-nvm-versions prompt))))
+
+  (setq js-nvm-current-version (nvm--find-exact-version-for version)
+        js-comint-program-command (format "%s/bin/node" (cadr js-nvm-current-version))))
 
 (defun js-comint-guess-load-file-cmd (filename)
   "Create Node file loading command for FILENAME."
@@ -335,15 +332,13 @@ set CMD."
                            (cons js-comint-program-command
                                  js-comint-program-arguments)
                            " ")))))
-
-  (when (and (not cmd)
-             js-use-nvm)
-    (require 'nvm)
-    (unless js-nvm-current-version (js-comint-select-node-version)))
-
-  (when cmd
-    (setq js-comint-program-arguments (split-string cmd))
-    (setq js-comint-program-command (pop js-comint-program-arguments)))
+  (if cmd
+      (let ((cmd-parts (split-string cmd)))
+        (setq js-comint-program-arguments (cdr cmd-parts)
+              js-comint-program-command (car cmd-parts)))
+    (when (and js-use-nvm
+               (not js-nvm-current-version))
+      (js-comint-select-node-version)))
 
   (js-comint-start-or-switch-to-repl))
 
