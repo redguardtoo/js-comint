@@ -304,6 +304,7 @@ Create a new Javascript REPL process."
          (all-paths-list (flatten-list (list node-path
                                              node-modules-path
                                              js-comint-module-paths)))
+         (all-paths-list (seq-remove 'string-empty-p all-paths-list))
          (local-node-path (string-join all-paths-list (js-comint--path-sep)))
          (repl-mode (or (getenv "NODE_REPL_MODE") "magic"))
          (js-comint-code (format js-comint-code-format
