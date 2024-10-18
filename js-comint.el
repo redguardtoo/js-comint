@@ -297,25 +297,26 @@ Create a new Javascript REPL process."
 (defun js-comint-start-or-switch-to-repl ()
   "Start a new repl or switch to existing repl."
   (interactive)
-  (let* ((node-path (getenv "NODE_PATH"))
-         ;; The path to a local node_modules
-         (node-modules-path (and js-comint-set-env-when-startup
-                                 (js-comint--suggest-module-path)))
-         (all-paths-list (flatten-list (list node-path
-                                             node-modules-path
-                                             js-comint-module-paths)))
-         (all-paths-list (seq-remove 'string-empty-p all-paths-list))
-         (local-node-path (string-join all-paths-list (js-comint--path-sep)))
-         (repl-mode (or (getenv "NODE_REPL_MODE") "magic"))
-         (js-comint-code (format js-comint-code-format
-                        (window-width) js-comint-prompt repl-mode)))
-    ;; TODO what happens if you switch into this from a different project?
-    (with-environment-variables (("NODE_NO_READLINE" "1")
-                                 ("NODE_PATH" local-node-path))
-      (pop-to-buffer
-       (apply 'make-comint js-comint-buffer js-comint-program-command nil
-              `(,@js-comint-program-arguments "-e" ,js-comint-code))))
-    (js-comint-mode)))
+  (if (js-comint-get-process)
+      (pop-to-buffer (js-comint-get-buffer))
+    (let* ((node-path (getenv "NODE_PATH"))
+           ;; The path to a local node_modules
+           (node-modules-path (and js-comint-set-env-when-startup
+                                   (js-comint--suggest-module-path)))
+           (all-paths-list (flatten-list (list node-path
+                                               node-modules-path
+                                               js-comint-module-paths)))
+           (all-paths-list (seq-remove 'string-empty-p all-paths-list))
+           (local-node-path (string-join all-paths-list (js-comint--path-sep)))
+           (repl-mode (or (getenv "NODE_REPL_MODE") "magic"))
+           (js-comint-code (format js-comint-code-format
+                          (window-width) js-comint-prompt repl-mode)))
+      (with-environment-variables (("NODE_NO_READLINE" "1")
+                                   ("NODE_PATH" local-node-path))
+        (pop-to-buffer
+         (apply 'make-comint js-comint-buffer js-comint-program-command nil
+                `(,@js-comint-program-arguments "-e" ,js-comint-code))))
+      (js-comint-mode))))
 
 ;;;###autoload
 (defun js-comint-repl (&optional cmd)
