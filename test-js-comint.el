@@ -1,3 +1,8 @@
+;; -*- lexical-binding: t -*-
+
+(require 'js-comint)
+(require 'ert)
+
 (defun js-comint-test-buffer-matches (regex)
   "Search the js-comint buffer for the given regular expression.
 Return 't if a match is found, nil otherwise."
@@ -19,6 +24,12 @@ Return 't if a match is found, nil otherwise."
   (sit-for 1)
 
   (js-comint-test-buffer-matches regex))
+
+(defun js-comint-test-exit-comint ()
+  "Finish process."
+  (when (js-comint-get-process)
+    (process-send-string (js-comint-get-process) ".exit\n")
+    (sit-for 1)))
 
 (ert-deftest js-comint-test-multiline-dotchain-line-start ()
   "Test multiline statement with dots at beginning of lines."
@@ -42,3 +53,66 @@ DOS line separators."
 map((it) => it + 1).
 filter((it) => it > 0).
 reduce((prev, curr) => prev + curr, 0);" "^9$")))
+
+(ert-deftest js-comint-start-or-switch-to-repl/test-no-modules ()
+  "Should preserve node_path when nothing is set."
+  (let ((original js-comint-module-paths)
+        (original-set-env js-comint-set-env-when-startup)
+        (original-env (getenv "NODE_PATH")))
+    (unwind-protect
+        (progn
+          (setq js-comint-module-paths nil
+                js-comint-set-env-when-startup nil)
+          (setenv "NODE_PATH" "/foo/bar")
+          (js-comint-test-exit-comint)
+          (js-comint-start-or-switch-to-repl)
+          (sit-for 1)
+          (js-comint-send-string "process.env['NODE_PATH'];")
+          (js-comint-test-buffer-matches "/foo/bar"))
+      (setq js-comint-module-paths original
+            js-comint-set-env-when-startup original-set-env)
+      (setenv "NODE_PATH" original-env)
+      (js-comint-test-exit-comint))))
+
+(ert-deftest js-comint-start-or-switch-to-repl/test-global-set ()
+  "Should include the value of `js-comint-node-modules' if set."
+  (let ((original js-comint-module-paths)
+        (original-set-env js-comint-set-env-when-startup)
+        (original-env (getenv "NODE_PATH")))
+    (unwind-protect
+        (progn
+          (setq js-comint-module-paths '("/baz/xyz")
+                js-comint-set-env-when-startup nil)
+          (setenv "NODE_PATH" "/foo/bar")
+          (js-comint-test-exit-comint)
+          (js-comint-start-or-switch-to-repl)
+          (sit-for 1)
+          (js-comint-send-string "process.env['NODE_PATH'];")
+          (js-comint-test-buffer-matches (concat "/foo/bar" (js-comint--path-sep) "/baz/xyz")))
+      (setq js-comint-module-paths original
+            js-comint-set-env-when-startup original-set-env)
+      (setenv "NODE_PATH" original-env)
+      (js-comint-test-exit-comint))))
+
+(ert-deftest js-comint-start-or-switch-to-repl/test-local ()
+  "Should include the optional node-modules-path."
+  (let ((original js-comint-module-paths)
+        (original-set-env js-comint-set-env-when-startup)
+        (original-env (getenv "NODE_PATH"))
+        (original-suggest (symbol-function 'js-comint--suggest-module-path)))
+    (unwind-protect
+        (progn
+          (fset 'js-comint--suggest-module-path (lambda () "/baz/xyz"))
+          (setq js-comint-module-paths '()
+                js-comint-set-env-when-startup 't)
+          (setenv "NODE_PATH" "/foo/bar")
+          (js-comint-test-exit-comint)
+          (js-comint-start-or-switch-to-repl)
+          (sit-for 1)
+          (js-comint-send-string "process.env['NODE_PATH'];")
+          (js-comint-test-buffer-matches (concat "/foo/bar" (js-comint--path-sep) "/baz/xyz")))
+      (setq js-comint-module-paths original
+            js-comint-set-env-when-startup original-set-env)
+      (setenv "NODE_PATH" original-env)
+      (fset 'js-comint--suggest-module-path original-suggest)
+      (js-comint-test-exit-comint))))
