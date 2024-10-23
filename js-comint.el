@@ -137,8 +137,12 @@
 (defvar js-comint-code-format
   (concat
    "process.stdout.columns = %d;"
-   "require('repl').start('%s', null, null, true, false, "
-   "require('repl')['REPL_MODE_' + '%s'.toUpperCase()])"))
+   "require('repl').start({
+\"prompt\": '%s',
+\"ignoreUndefined\": true,
+\"preview\": true,
+\"replMode\": require('repl')['REPL_MODE_' + '%s'.toUpperCase()]
+})"))
 
 (defvar js-nvm-current-version nil
   "Current version of node for js-comint.
