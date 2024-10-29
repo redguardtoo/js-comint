@@ -17,3 +17,13 @@ jobs:
         run: eask install-deps --dev
       - name: Run tests
         run: eask run script test
+  lint:
+    runs-on: ubuntu-latest
+    container: silex/emacs:29-ci-eask
+    steps:
+      - name: Check out repository code
+        uses: actions/checkout@v4
+      - name: Install test dependencies
+        run: eask install-deps --dev
+      - name: Run linters
+        run: eask lint declare --strict

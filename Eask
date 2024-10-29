@@ -15,4 +15,5 @@
 (depends-on "emacs" "28.1")
 
 (development
- (depends-on "el-mock"))
+ (depends-on "el-mock")
+ (depends-on "nvm"))
