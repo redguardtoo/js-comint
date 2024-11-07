@@ -137,8 +137,11 @@
 (defvar js-comint-code-format
   (concat
    "process.stdout.columns = %d;"
-   "require('repl').start('%s', null, null, true, false, "
-   "require('repl')['REPL_MODE_' + '%s'.toUpperCase()])"))
+   "require('repl').start({
+\"prompt\": '%s',
+\"ignoreUndefined\": true,
+\"preview\": true
+})"))
 
 (defvar js-nvm-current-version nil
   "Current version of node for js-comint.
@@ -308,9 +311,8 @@ Create a new Javascript REPL process."
                                                js-comint-module-paths)))
            (all-paths-list (seq-remove 'string-empty-p all-paths-list))
            (local-node-path (string-join all-paths-list (js-comint--path-sep)))
-           (repl-mode (or (getenv "NODE_REPL_MODE") "magic"))
            (js-comint-code (format js-comint-code-format
-                          (window-width) js-comint-prompt repl-mode)))
+                          (window-width) js-comint-prompt)))
       (with-environment-variables (("NODE_NO_READLINE" "1")
                                    ("NODE_PATH" local-node-path))
         (pop-to-buffer

@@ -116,3 +116,9 @@ reduce((prev, curr) => prev + curr, 0);" "^9$")))
       (setenv "NODE_PATH" original-env)
       (fset 'js-comint--suggest-module-path original-suggest)
       (js-comint-test-exit-comint))))
+
+(ert-deftest js-comint/test-strict-mode ()
+  "When NODE_REPL_MODE=strict should use strict mode."
+  (with-environment-variables (("NODE_REPL_MODE" "strict"))
+    ;; global variables are not allowed in strict mode
+    (js-comint-test-output-matches "foo = 5;" "Uncaught ReferenceError.*")))
