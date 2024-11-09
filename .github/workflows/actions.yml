@@ -6,11 +6,24 @@ jobs:
       matrix:
         emacs-version: [28, 29]
     runs-on: ubuntu-latest
-    container: silex/emacs:${{matrix.emacs-version}}
+    container: silex/emacs:${{matrix.emacs-version}}-ci-eask
+    steps:
+      - name: Check out repository code
+        uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - name: Install test dependencies
+        run: eask install-deps --dev
+      - name: Run tests
+        run: eask run script test
+  lint:
+    runs-on: ubuntu-latest
+    container: silex/emacs:29-ci-eask
     steps:
       - name: Check out repository code
         uses: actions/checkout@v4
       - name: Install test dependencies
-        run: ./install-deps.sh
-      - name: Run tests
-        run: ./runtests.sh
+        run: eask install-deps --dev
+      - name: Run linters
+        run: eask lint declare --strict

@@ -2,6 +2,7 @@
 
 (require 'js-comint)
 (require 'ert)
+(require 'el-mock)
 
 (defun js-comint-test-buffer-matches (regex)
   "Search the js-comint buffer for the given regular expression.
@@ -122,3 +123,49 @@ reduce((prev, curr) => prev + curr, 0);" "^9$")))
   (with-environment-variables (("NODE_REPL_MODE" "strict"))
     ;; global variables are not allowed in strict mode
     (js-comint-test-output-matches "foo = 5;" "Uncaught ReferenceError.*")))
+
+(ert-deftest js-comint-select-node-version/test-no-nvm ()
+  "Should error if nvm is missing."
+  (let ((original-command-value js-comint-program-command))
+    (with-mock
+     (mock (require 'nvm) => (error "Cannot open nvm"))
+     (should-error (js-comint-select-node-version))
+     (should-not js-use-nvm)
+     (should (equal js-comint-program-command
+                    original-command-value)))))
+
+(ert-deftest js-comint-select-node-version/test-with-arg ()
+  "Should set program-command when called non-interactively."
+  (let ((original-command-value js-comint-program-command)
+        (original-use-jvm-value js-use-nvm)
+        (original-nvm-version js-nvm-current-version))
+    (unwind-protect
+        (with-mock
+          (mock (require 'nvm))
+          (mock (nvm--find-exact-version-for "foo") => '("foo-1.2" "some_path"))
+          (js-comint-select-node-version "foo")
+          (should js-use-nvm)
+          (should (equal js-comint-program-command
+                         "some_path/bin/node"))
+          (should (equal js-nvm-current-version
+                         '("foo-1.2" "some_path"))))
+      (setq js-comint-program-command original-command-value
+            js-use-nvm original-use-jvm-value
+            js-nvm-current-version original-nvm-version))))
+
+(ert-deftest js-comint-select-node-version/test-optional-arg ()
+  "Should set program-command when called with no arg."
+  (let ((original-command-value js-comint-program-command)
+        (original-use-jvm-value js-use-nvm)
+        (original-nvm-version js-nvm-current-version))
+    (unwind-protect
+        (with-mock
+          (mock (require 'nvm))
+          (mock (js-comint-list-nvm-versions *) => "foo")
+          (mock (nvm--find-exact-version-for "foo") => '("foo-1.2" "some_path"))
+          (js-comint-select-node-version)
+          (should (equal js-comint-program-command
+                         "some_path/bin/node")))
+      (setq js-comint-program-command original-command-value
+            js-use-nvm original-use-jvm-value
+            js-nvm-current-version original-nvm-version))))
