@@ -7,7 +7,7 @@
 
 (package-file "js-comint.el")
 
-(script "test" "eask test ert test-js-comint.el")
+(script "test" "eask test ert js-comint-test.el")
 
 (source "gnu")
 (source "melpa")
