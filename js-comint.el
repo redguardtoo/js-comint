@@ -85,6 +85,7 @@
 (require 'js)
 (require 'comint)
 (require 'ansi-color)
+(require 'cl-lib)
 
 (defgroup js-comint nil
   "Run a javascript process in a buffer."
@@ -140,7 +141,8 @@
    "require('repl').start({
 \"prompt\": '%s',
 \"ignoreUndefined\": true,
-\"preview\": true
+\"preview\": true,
+\"replMode\": require('repl')['REPL_MODE_' + '%s'.toUpperCase()]
 })"))
 
 (defvar js-nvm-current-version nil
@@ -149,6 +151,11 @@ Either nil or a list (VERSION-STRING PATH).")
 
 (declare-function nvm--installed-versions "nvm.el" ())
 (declare-function nvm--find-exact-version-for "nvm.el" (short))
+
+;; company.el declarations
+(defvar company-backends)
+(declare-function company-begin-backend "company.el" (backend &optional callback))
+(declare-function company-in-string-or-comment "company.el" nil)
 
 (defun js-comint-list-nvm-versions (prompt)
   "List all available node versions from nvm prompting the user with PROMPT.
@@ -227,6 +234,270 @@ Return a string representing the node version."
         (setq js-comint-module-paths
               (delete dir js-comint-module-paths))
         (message "\"%s\" delete from `js-comint-module-paths'" dir))))))
+
+;;;; Completions:
+(defun js-comint--process-completion-output (completion prefix)
+  "Format COMPLETION string as a list of candidates.
+PREFIX is the original completion prefix string."
+  (let* ((completion (replace-regexp-in-string "\\[[[:digit:]]+[[:alpha:]]+" "" completion))
+         (completion-lines (split-string completion "\n" 't))
+         ;; in a single completion the node REPL optionally prints type information in a comment
+         (completion-lines (seq-remove (apply-partially #'string-prefix-p "//")
+                                       completion-lines))
+         (completion-tokens (seq-mapcat (lambda (x) (split-string x nil 't)) completion-lines))
+         (trimmed-prompt (string-trim js-comint-prompt))
+         (completion-res (seq-remove (lambda (x) (or (equal x prefix)
+                                                     (equal x trimmed-prompt)
+                                                     (equal x "...")))
+                                     completion-tokens)))
+    completion-res))
+
+(defvar-local js-comint--completion-callbacks nil
+  "List of pending callbacks.
+Each should be a plist with last-prompt-start, input-string, type,
+function.  See `js-comint--set-completion-callback'.")
+
+(defvar-local js-comint--completion-buffer nil
+  "Buffer for completion output.")
+
+(defun js-comint--clear-completion-state ()
+  "Clear stored partial completions."
+  (when js-comint--completion-buffer
+    (with-current-buffer js-comint--completion-buffer
+      (erase-buffer))))
+
+(defun js-comint--callback-active-p (callback)
+  "Non-nil if CALLBACK should be used given current prompt location and input."
+  (and
+   (equal
+    ;; marker for the prompt active when callback was created
+    (plist-get callback :last-prompt-start)
+    ;; start prompt marker, must be in comint buffer
+    (car comint-last-prompt))
+   ;; check input-string
+   (or
+    ;; "clear" callbacks always fire
+    (equal 'clear (plist-get callback :type))
+    ;; otherwise, if inputs are different, then not active
+    (equal (js-comint--current-input) (plist-get callback :input-string)))))
+
+(defun js-comint--async-output-filter (output)
+  "Dispatches callbacks listening for comint OUTPUT."
+  (cond
+   ((null js-comint--completion-callbacks)
+    output)
+   ;; Assuming most recent callbacks are at head of the list
+   ;; If the head is not active, then discard all in the list
+   ((not (js-comint--callback-active-p (car js-comint--completion-callbacks)))
+    (prog1 output
+      (js-comint--clear-completion-state)
+      (setq js-comint--completion-callbacks nil)))
+   (t
+    (prog1 ""
+      ;; first write output to completion-buffer
+      (unless (bufferp js-comint--completion-buffer)
+        (setq js-comint--completion-buffer (generate-new-buffer " *js-comint completion*" t)))
+      (with-current-buffer js-comint--completion-buffer
+        (goto-char (point-max))
+        (insert output))
+      ;; call only the active ones, discard others
+      (let ((active-callbacks (seq-filter
+                                 #'js-comint--callback-active-p
+                                 js-comint--completion-callbacks)))
+        ;; Some callbacks may add further callbacks during their execution.
+        ;; Re-add any pending callbacks to avoid overwriting new callbacks.
+        (setq js-comint--completion-callbacks nil)
+        (dolist (cb active-callbacks)
+          ;; if the callback exits with non-nil or signals, remove it
+          (unless (condition-case err
+                      (funcall (plist-get cb :function))
+                    (t (prog1 t
+                         (message "Error in callback %s" (cdr err)))))
+            (push cb js-comint--completion-callbacks))))
+      (if js-comint--completion-callbacks
+          (accept-process-output (js-comint-get-process) 0.4)
+        ;; otherwise reset
+        (js-comint--clear-completion-state))))))
+
+(defun js-comint--completion-looking-back-p (regexp)
+  "Call `looking-back' with REGEXP on `js-comint--completion-buffer'."
+  (with-current-buffer js-comint--completion-buffer
+    (goto-char (point-max))
+    (looking-back regexp (line-beginning-position))))
+
+(defun js-comint--set-completion-callback (callback type)
+  "Add CALLBACK to listen for completion output.
+TYPE is a symbol describing the callback, either \"clear\" or \"completion\"."
+  (push `(:last-prompt-start
+          ,(car comint-last-prompt)
+          :input-string
+          ,(js-comint--current-input)
+          :type
+          ,type
+          :function
+          ,callback)
+        js-comint--completion-callbacks))
+
+(defun js-comint--complete-substring (input-string)
+  "Given a full line in INPUT-STRING return the substring to complete."
+  (if-let ((match (string-match-p "[[:space:](\\[{;]\\([[:word:].]*\\)$" input-string)))
+    (string-trim (substring-no-properties input-string (1+ match)))
+    input-string))
+
+(defun js-comint--get-completion-async (input-string callback)
+  "Complete INPUT-STRING and register CALLBACK to recieve completion output."
+  (js-comint--clear-completion-state)
+  (js-comint--set-completion-callback
+   ;; callback closure
+   (let (tab-sent   ;; flag tracking repeat tabs: Array\t => \t
+         check-sent ;; flag tracking whether check has been sent
+         finished)  ;; flag tracking if 'callback' has been called, referred to by inner closures
+     (lambda ()
+       (cond
+        ;; case: exact match to input-string in output
+        ((and (not (string-empty-p input-string))
+              (js-comint--completion-looking-back-p (regexp-quote input-string)))
+         ;; Completions like "Array." need a second tab after the response
+         (cond
+          ((and (string-suffix-p "." input-string)
+                (not tab-sent))
+           (prog1 nil ;; do not remove callback
+             (setq tab-sent 't)
+             ;; When completing "Array." this will get a list of props
+             (process-send-string (js-comint-get-process) "\t")
+             ;; When the completion does not exist, e.g. "foo." there is no response to this tab
+             ;; Instead, schedule a callback that produces a prompt, e.g. "> foo."
+             ;; This might happen after completion is finished, either by other input or clearing,
+             ;; so check to avoid adding garbage output.
+             (run-at-time 1 nil (lambda () (unless (or finished (not js-comint--completion-callbacks))
+                                             (process-send-string (js-comint-get-process) " \b"))))))
+          ;; Output may sometimes be staggered "Arr|ay" so the completion appears stepwise
+          ((not check-sent)
+           (prog1 nil ;; do not remove callback
+             (setq check-sent 't)
+             ;; This "wiggles" the cursor making node repeat the prompt with current input
+             (process-send-string (js-comint-get-process) " \b")))
+          ;; Otherwise there was no match (after retry).
+          ;; The wiggle should cause a prompt to be echoed, so this case likely does not occur.
+          ;; Probably useful to keep for edge cases though.
+          ('t
+           (prog1 't ;; remove callback
+             (unwind-protect
+                 (funcall callback nil)
+               (js-comint--clear-input-async))))))
+        ;; case: found a control character (usually part of a prompt)
+        ((or check-sent
+             (js-comint--completion-looking-back-p "\\[[[:digit:]]+[AJG]$"))
+         (setq finished 't)
+         (let* ((completion-output (with-current-buffer js-comint--completion-buffer
+                                     (buffer-string)))
+                (completion-res (js-comint--process-completion-output
+                                 completion-output
+                                 input-string)))
+           (unwind-protect
+               (funcall callback completion-res)
+             (js-comint--clear-input-async))
+           't))
+        ;; all other cases
+        ('t
+         ;; expect that the callback will be removed
+         nil))))
+   'completion)
+
+  ;; Need to send 2x tabs to trigger completion when there is no input
+  ;; 1st tab usually does common prefix
+  (when (string-empty-p input-string)
+    (process-send-string
+     (js-comint-get-process)
+     "\t"))
+
+  (process-send-string
+   (js-comint-get-process)
+   (format "%s\t" input-string)))
+
+(defun js-comint--clear-input-async ()
+  "Clear input already sent to the REPL.
+This is used specifically to remove input used to trigger completion."
+  (js-comint--set-completion-callback
+   (lambda ()
+     ;; mask output until the REPL echoes a prompt
+     (js-comint--completion-looking-back-p (concat js-comint-prompt "\\[[[:digit:]]+[AG]$")))
+   'clear)
+
+  (process-send-string
+   (js-comint-get-process)
+   ;; this is the symbol for "cut"
+   ""))
+
+(defun js-comint--current-input ()
+  "Return current comint input relative to point.
+Nil if point is before the current prompt."
+  (let ((pmark (process-mark (js-comint-get-process))))
+    (when (>= (point) (marker-position pmark))
+	    (buffer-substring pmark (point)))))
+
+(defun js-comint--should-complete ()
+  "Non-nil if completion should be attempted on text before point."
+  (let* ((parse (syntax-ppss))
+         (string-or-comment (or (nth 3 parse) (nth 4 parse) (nth 7 parse))))
+   (cond
+    (string-or-comment
+     nil)
+    ((looking-back "\\." (line-beginning-position))
+     't)
+    ((looking-back "[[:punct:][:space:]]" (line-beginning-position))
+     nil)
+    (t
+     't))))
+
+;;;###autoload
+(defun company-js-comint (command &optional arg &rest _ignored)
+  "Wraps node REPL completion for company."
+  (interactive (list 'interactive))
+  (cl-case command
+    ((interactive)
+     (company-begin-backend 'company-js-comint))
+    ((prefix)
+     (when (equal major-mode 'js-comint-mode)
+       (if (js-comint--should-complete)
+           (js-comint--complete-substring (js-comint--current-input))
+         'stop)))
+    ((candidates)
+     (cons :async (apply-partially #'js-comint--get-completion-async arg)))))
+
+(with-eval-after-load 'company
+  (cl-pushnew #'company-js-comint company-backends))
+
+;; loosely follows cape-company-to-capf
+(defun js-comint--capf ()
+  "Convert `company-js-comint' function to a completion-at-point-function."
+  (when-let ((_ (js-comint--should-complete))
+             (initial-input (js-comint--complete-substring (js-comint--current-input))))
+    (let* ((end (point))
+           (beg (- end (length initial-input)))
+           restore-props)
+      (list beg end
+            (completion-table-dynamic
+             (lambda (input)
+               (let ((cands 'js-comint--waiting))
+                 (js-comint--get-completion-async input (lambda (arg) (setq cands arg)))
+                 ;; Force synchronization, not interruptible! We use polling
+                 ;; here and ignore pending input since we don't use
+                 ;; `sit-for'. This is the same method used by Company itself.
+                 (while (eq cands 'js-comint--waiting)
+                   (sleep-for 0.01))
+                 ;; The candidate string including text properties should be
+                 ;; restored in the :exit-function
+                 (setq restore-props cands)
+                 (cons (apply-partially #'string-prefix-p input) cands)))
+             t)
+            :exclusive 'no
+            :exit-function (lambda (x _status)
+                             ;; Restore the candidate string including
+                             ;; properties if restore-props is non-nil.  See
+                             ;; the comment above.
+                             (setq x (or (car (member x restore-props)) x))
+                             nil)))))
 
 ;;;###autoload
 (defun js-comint-save-setup ()
@@ -312,12 +583,16 @@ Create a new Javascript REPL process."
            (all-paths-list (seq-remove 'string-empty-p all-paths-list))
            (local-node-path (string-join all-paths-list (js-comint--path-sep)))
            (js-comint-code (format js-comint-code-format
-                          (window-width) js-comint-prompt)))
-      (with-environment-variables (("NODE_NO_READLINE" "1")
-                                   ("NODE_PATH" local-node-path))
-        (pop-to-buffer
-         (apply 'make-comint js-comint-buffer js-comint-program-command nil
-                `(,@js-comint-program-arguments "-e" ,js-comint-code))))
+                          (window-width)
+                          js-comint-prompt
+                          (or (getenv "NODE_REPL_MODE") "sloppy")))
+           ;; NOTE: it's recommended not to use NODE_PATH
+           (environment `("TERM=emacs"
+                          "NODE_NO_READLINE=1"
+                          ,(format "NODE_PATH=%s" local-node-path))))
+      (pop-to-buffer
+       (apply 'make-comint js-comint-buffer "env" nil
+              `(,@environment ,js-comint-program-command ,@js-comint-program-arguments "-e" ,js-comint-code)))
       (js-comint-mode))))
 
 ;;;###autoload
@@ -422,6 +697,16 @@ If no region selected, you could manually input javascript expression."
     (define-key map (kbd "C-c C-c") 'js-comint-quit-or-cancel)
     map))
 
+(defun js-comint-unload-function ()
+  "Cleanup mode settings."
+  (when company-backends
+    (setq company-backends
+          (delete #'company-js-comint company-backends))))
+
+(defun js-comint--cleanup ()
+  "Runs after comint buffer is killed."
+  (when js-comint--completion-buffer
+      (kill-buffer js-comint--completion-buffer)))
 
 ;;;###autoload
 (define-derived-mode js-comint-mode comint-mode "Javascript REPL"
@@ -433,6 +718,10 @@ If no region selected, you could manually input javascript expression."
   ;; Ignore duplicates
   (setq comint-input-ignoredups t)
   (add-hook 'comint-output-filter-functions 'js-comint-filter-output nil t)
+  (add-hook 'comint-preoutput-filter-functions #'js-comint--async-output-filter nil t)
+  (add-hook 'kill-buffer-hook #'js-comint--cleanup nil t)
+  (unless (featurep 'company)
+    (add-hook 'completion-at-point-functions #'js-comint--capf nil t))
   (process-put (js-comint-get-process)
                'adjust-window-size-function (lambda (_process _windows) ()))
   (use-local-map js-comint-mode-map)
