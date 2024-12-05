@@ -7,7 +7,7 @@
 
 (package-file "js-comint.el")
 
-(script "test" "eask test ert js-comint-test.el")
+(script "test" "eask test ert test/*tests.el")
 
 (source "gnu")
 (source "melpa")
@@ -16,4 +16,6 @@
 
 (development
  (depends-on "el-mock")
- (depends-on "nvm"))
+ (depends-on "nvm")
+ (depends-on "company")
+ (depends-on "ert-async"))
