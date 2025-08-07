@@ -9,7 +9,7 @@
 ;;; Created: 15 Feb 2014
 ;;; Version: 1.2.0
 ;;; URL: https://github.com/redguardtoo/js-comint
-;;; Package-Requires: ((emacs "28.1"))
+;;; Package-Requires: ((emacs "27.1"))
 ;;; Keywords: javascript, node, inferior-mode, convenience
 
 ;; This file is NOT part of GNU Emacs.
