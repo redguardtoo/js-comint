@@ -93,3 +93,6 @@ You can add the following couple of lines to your .emacs/init file to take advan
   (define-key js-mode-map [remap eval-last-sexp] #'js-comint-send-last-sexp))
   (define-key js-mode-map (kbd "C-c b") 'js-send-buffer))
 #+END_SRC
+
+* Run unit test locally
+Run =npm install -g @emacs-eask/cli && eask install-deps --dev && eask test ert test/*tests.el=
