@@ -4,7 +4,7 @@ jobs:
   test-emacs-versions:
     strategy:
       matrix:
-        emacs-version: [27, 28, 29]
+        emacs-version: [28, 29]
     runs-on: ubuntu-latest
     container: silex/emacs:${{matrix.emacs-version}}-ci-eask
     steps:

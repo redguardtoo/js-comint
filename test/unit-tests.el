@@ -82,13 +82,9 @@ reduce((prev, curr) => prev + curr, 0);"
 
 (ert-deftest js-comint/test-strict-mode ()
   "When NODE_REPL_MODE=strict should use strict mode."
-  (let ((old (getenv "NODE_REPL_MODE")))
-    (unwind-protect
-        (progn
-          (setenv "NODE_REPL_MODE" "strict")
-          ;; global variables are not allowed in strict mode
-          (js-comint-test-output-matches "foo = 5;" "Uncaught ReferenceError.*"))
-      (setenv "NODE_REPL_MODE" old))))
+  (with-environment-variables (("NODE_REPL_MODE" "strict"))
+    ;; global variables are not allowed in strict mode
+    (js-comint-test-output-matches "foo = 5;" "Uncaught ReferenceError.*")))
 
 (ert-deftest js-comint-select-node-version/test-no-nvm ()
   "Should error if nvm is missing."
